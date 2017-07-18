@@ -1,0 +1,222 @@
+#!/bin/bash
+#
+# GRID-CONFIG
+##
+##	This program configures global variables for grid management.
+
+# Define Function
+## Help
+function grid-agent_help(){
+	help_text=$(cat <<-EOF
+\n
+Syntax : ${0##*/} GLOBALVAR_NAME GLOBALVAR_VALUE
+\n\n
+This program configures global variables for grid management.
+\n\n
+-- Default Global Variables :: 
+\n
+\n\t	GRID_ADMIN=${GRID_ADMIN}
+\n\t	GRID_COMPUTE_NODES=${GRID_COMPUTE_NODES}
+\n\t	GRID_CONFIG_TEMPLATE=${GRID_CONFIG_TEMPLATE}
+\n\t	GRID_HOME=${GRID_HOME}
+\n\t	GRID_MASTER_NODE=${GRID_MASTER_NODE}
+\n\t	GRID_NODE_HOME=${GRID_NODE_HOME}
+\n\t	GRID_SSHFS_OPTS=${GRID_SSHFS_OPTS}
+\n\t	GRID_SSHKEY=${GRID_SSHKEY}
+\n\t	GRID_START=${GRID_START}
+\n\t	GRID_STOP=${GRID_STOP}
+\n\t	GRID_USER=${GRID_USER}
+\n\t	SAFETYKEY=${SAFETYKEY}
+\n\t	SGE_ROOT=${SGE_ROOT}
+\n
+EOF
+)
+echo -e ${help_text}
+}
+# Define Function
+## Print Current Configuration to Screen and Ask User for Modifications
+function grid-config(){
+	grid-config_check
+	echo 'Global Configuration for Grid Services'
+	cat ${GRID_CONFIG_TEMPLATE} | nl
+	read -p " 📢  Type Return to Accept Settings or Enter Line #'s to Modify Environment ▶️  " GRID_EDIT_ENV
+	grid-config_queryuser
+}
+# Define Function
+## Check for existence of configuration file
+function grid-config_check(){
+	# Populate namespace if config template variable is not defined
+	[ -z "${CONFIG}" ] && grid-config_template	
+	# Check for File Reset
+	[ -f "${GRID_CONFIG_TEMPLATE}" ] && [ ! -z "${reset}" ] && rm -v ${GRID_CONFIG_TEMPLATE}		
+	# Create Configuration Directory & Template File if They Don't Exist
+	[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE})
+	[ ! -f "${GRID_CONFIG_TEMPLATE}" ] && grid-config_write_env
+}
+# Define Function
+## Write Configuration File
+function grid-config_write_env(){
+	# Write to Configuration File
+	echo ${CONFIG} > ${GRID_CONFIG_TEMPLATE}
+	# Populate Namespace with new files
+	CONFIG=$(cat ${GRID_CONFIG_TEMPLATE}) && echo ${CONFIG} | eval
+	# Create Any New Files (self-referential)
+	grid-config_check
+}
+# Define Function
+## Populte Namespace with Template for Global Variables
+function grid-config_template(){
+	# Originally obtained from default definitions
+	## can be updated with user-input
+	CONFIG=$(cat <<-EOF
+	GRID_ADMIN=${GRID_ADMIN}
+	GRID_COMPUTE_NODES=${GRID_COMPUTE_NODES}	
+	GRID_CONFIG_TEMPLATE=${GRID_CONFIG_TEMPLATE}
+	GRID_HOME=${GRID_HOME}	
+	GRID_MASTER_NODE=${GRID_MASTER_NODE}
+	GRID_NODE_HOME=${GRID_NODE_HOME}
+	GRID_SSHFS_OPTS=${GRID_SSHFS_OPTS}
+	GRID_SSHKEY=${GRID_SSHKEY}			
+	GRID_START=${GRID_START}
+	GRID_STOP=${GRID_STOP}
+	GRID_USER=${GRID_USER}
+	SAFETYKEY=${SAFETYKEY}	
+	SGE_ROOT=${SGE_ROOT}
+EOF
+)
+eval ${CONFIG}
+}
+# Define Function
+## Retrieve User Input
+function grid-config_queryuser(){
+	for line in ${GRID_EDIT_ENV}; do
+		var=$(echo "${CONFIG}" | sed ''${line}'q;d' | grep -o '[^=]*')
+		read -p ">> ${var}=" user_in
+		CONFIG=$(echo "${CONFIG}" | sed "${line}s/.*/${var}=\'${user_in}\'/")
+	done
+	# Query User to Accept Final Settings
+	echo '' && echo -e "${CONFIG}" | nl && echo ''
+	read -p "[A]ccept/[D]ecline Settings?  " proceed
+	[ -z "${proceed}" ] || [ "${proceed}" = 'Accept' ] || [ "${proceed}" = 'A' ] && eval ${CONFIG} && grid-config_write_env && echo "  -- Definitions Written to GRID_CONFIG_TEMPLATE"
+	[ "${proceed}" = 'D' ] || [ "${proceed}" = 'Decline' ] && grid-config_queryuser
+}
+
+# Set default values for global variables
+GRID_ADMIN='sgeadmin'
+GRID_COMPUTE_NODES=''
+GRID_CONFIG_TEMPLATE=${HOME}'/.grid/.gconf_template'
+GRID_HOME='${HOME}/ogs_home'
+GRID_MASTER_NODE=''
+GRID_USER='sgeuser'
+GRID_NODE_HOME='/Volumes/CFMI-CFS/home/'${GRID_USER}'/$(hostname)'
+GRID_SSHFS_OPTS='defer_permissions,follow_symlinks,kernel_cache,reconnect,cipher=arcfour,cache=yes'
+GRID_SSHKEY='ogs_rsa'
+GRID_START='engine'
+GRID_STOP='engine'
+SAFETYKEY=''
+SGE_ROOT='/opt/ogs'
+
+# Parse Options
+while :; do
+	case ${1} in
+		'reset')
+			reset='reset'
+		;;
+		'GRID_CONFIG_TEMPLATE')
+			if [ -n "${2}" ]; then
+				GRID_CONFIG_TEMPLATE=${2}
+				shift
+			fi			
+		;;
+		'GRID_COMPUTE_NODES')
+			if [ -n "${2}" ]; then
+				GRID_COMPUTE_NODES=${2}
+				shift
+			fi			
+		;;
+		'GRID_SSHKEY')
+			if [ -n "${2}" ]; then
+				GRID_SSHKEY=${2}
+				shift
+			fi			
+		;;
+		'GRID_ADMIN')
+			if [ -n "${2}" ]; then
+				GRID_ADMIN=${2}
+				shift
+			fi			
+		;;
+		'GRID_USER')
+			if [ -n "${2}" ]; then
+				GRID_USER=${2}
+				shift
+			fi			
+		;;
+		'GRID_MASTER_NODE')
+			if [ -n "${2}" ]; then
+				GRID_MASTER_NODE=${2}
+				shift
+			fi			
+		;;
+		'GRID_HOME')
+			if [ -n "${2}" ]; then
+				GRID_HOME=${2}
+				shift
+			fi			
+		;;
+		'GRID_SSHFS_OPTS')
+			if [ -n "${2}" ]; then
+				GRID_SSHFS_OPTS=${2}
+				shift
+			fi			
+		;;
+		'GRID_NODE_HOME')
+			if [ -n "${2}" ]; then
+				GRID_NODE_HOME=${2}
+				shift
+			fi			
+		;;				
+		'GRID_START')
+			if [ -n "${2}" ]; then
+				GRID_START=${2}
+				shift
+			fi			
+		;;				
+		'GRID_STOP')
+			if [ -n "${2}" ]; then
+				GRID_STOP=${2}
+				shift
+			fi			
+		;;
+		'SAFETYKEY')
+			if [ -n "${2}" ]; then
+				SAFETYKEY=${2}
+				shift
+			fi			
+		;;
+		'SGE_ROOT')
+			if [ -n "${2}" ]; then
+				SGE_ROOT=${2}
+				shift
+			fi			
+		;;														
+		'?'|'-h'|'h'|'-help'|'help'|'--help')
+			grid-agent_help
+			exit
+		;;
+		?*)
+			printf '\n ‼️ Warning: Unknown option: %s\n' "${1}" >&2
+			exit
+			;;
+		*)
+			break		
+	esac
+	shift
+done
+
+# Execute configuration
+grid-config
+
+##
+##
+#
