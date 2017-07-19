@@ -3,6 +3,9 @@
 # GRID-CONFIG
 ##
 ##	This program configures global variables for grid management.
+##
+##	TODO
+##			- add qconf setup
 
 # Set default values for global variables
 GRID_ADMIN='sgeadmin'
@@ -59,7 +62,7 @@ function grid-config(){
 	grid-config_check
 	echo 'Global Configuration for Grid Services'
 	cat "${GRID_CONFIG_TEMPLATE}" | nl
-	read -p " 📢  Type Return to Accept Settings or Enter Line #'s to Modify Environment ▶️  " GRID_EDIT_ENV
+	read -p " 📢  Enter to Accept Settings or Type Line #s (1 .. 3) to Modify Environment ▶️  " GRID_EDIT_ENV
 	grid-config_queryuser
 }
 # Define Function
@@ -86,7 +89,7 @@ function grid-config_write_env(){
 	grid-config_check
 }
 # Define Function
-## Populte Namespace with Template for Global Variables
+## Populate Namespace with Template for Global Variables
 function grid-config_template(){
 	# Originally obtained from default definitions
 	## can be updated with user-input
@@ -114,12 +117,12 @@ function grid-config_queryuser(){
 	for line in ${GRID_EDIT_ENV}; do
 		var=$(echo "${CONFIG}" | sed ''${line}'q;d' | grep -o '[^=]*')
 		read -p ">> ${var}=" user_in
-		CONFIG=$(echo "${CONFIG}" | sed "${line}s{.*{${var}=\'${user_in}\'{")
+		CONFIG=$(echo "${CONFIG}" | sed "${line}s;.*;${var}=\'${user_in}\';")
 	done
 	# Query User to Accept Final Settings
 	echo '' && echo -e "${CONFIG}" | nl && echo ''
 	read -p "[A]ccept/[D]ecline Settings?  " proceed
-	[ -z "${proceed}" ] || [ "${proceed}" = 'Accept' ] || [ "${proceed}" = 'A' ] && eval ${CONFIG} && grid-config_write_env && echo "  -- Definitions Written to GRID_CONFIG_TEMPLATE"
+	[ -z "${proceed}" ] || [ "${proceed}" = 'Accept' ] || [ "${proceed}" = 'A' ] && echo "${CONFIG}" | eval && grid-config_write_env && echo "  -- Definitions Written to GRID_CONFIG_TEMPLATE"
 	[ "${proceed}" = 'D' ] || [ "${proceed}" = 'Decline' ] && grid-config_queryuser
 }
 
@@ -221,8 +224,9 @@ while :; do
 	shift
 done
 
+
 # Execute configuration
-grid-config
+$(pwd)/gconf GRID_CONFIG_TEMPLATE .grid/test_config 
 
 ##
 ##
