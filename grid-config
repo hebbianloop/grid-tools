@@ -3,8 +3,83 @@
 # GRID-CONFIG
 ##
 ##	This program configures global variables for grid management.
+##
+##      TODO
+##             -  check wifi?
 
 # Set default values for global variables
+
+GRID_CONFIG_TEMPLATE=${HOME}/.grid/.gconf_template
+
+# Define Function
+## Help
+function grid-agent_help(){
+	help_text=$(cat <<-EOF
+\n
+Syntax : ${0##*/} [reset|(un/in)stall|superuser] [grid-command|brew-(un/in)stall COMMAND] [file FILENAME]
+\n\n
+This program configures global variables for grid management.
+\n\n
+-- Options ::
+\n
+\treset         delete local configuration file\n
+\tfile          load/create new configuration file
+
+The following commands are executed on every node defined in configuration file ::
+\tinstall        install grid tools\n
+\tuninstall      remove grid tools\n
+\tbrew-install   install package\n
+\tbrew-uninstall uninstall package\n
+\tgrid-command   remote execution of command\n
+\n
+EOF
+)
+echo -e ${help_text}
+}
+# Define Function
+## Print Current Configuration to Screen and Ask User for Modifications
+function grid-config(){
+    # Check for existing configuration files
+    grid-config_check
+	# Run a brew install/uninstall on list of remote hosts
+	[ ! -z "${GRID_BREW}" ] || [ ! -z "${GRID_UNBREW}" ] && grid-config_brew
+	# Install grid-tools on list of remote hosts
+	[ ! -z "${GRID_INSTALL}" ] && grid-config_install-tools
+	[ ! -z "{GRID_COMMAND}" ] && grid-build_ssh_exe
+}
+# Define Function
+## Check for existence of configuration file
+function grid-config_check(){
+	# Check for File Reset
+	[ -f "${GRID_CONFIG_TEMPLATE}" ] && [ ! -z "${reset}" ] && rm -v ${GRID_CONFIG_TEMPLATE}
+	# Read existing Configuration File and load into namespace
+	if [ -f "${GRID_CONFIG_TEMPLATE}" ]; then
+		echo 'Global Configuration for Grid Services'
+		echo "$(cat $GRID_CONFIG_TEMPLATE)"
+		read -p "[A]ccept/[E]dit Settings?  " proceed
+		if [ "${proceed}" = 'E' ] || [ "${proceed}" = 'Edit' ] || [ "${proceed}" = 'e' ]; then
+		    grid-config_editconf ${GRID_CONFIG_TEMPLATE} && grid-config_loadvars ${GRID_CONFIG_TEMPLATE}
+		else
+		    grid-config_loadvars ${GRID_CONFIG_TEMPLATE}
+		fi
+	fi
+	# Populate namespace if config template variable is not defined
+	[ ! -f "${GRID_CONFIG_TEMPLATE}" ] && grid-config_template
+}
+# Define Function
+## Populate namespace
+function grid-config_loadvars(){
+    local file=${1}
+    while read var; do
+	eval ${var}
+    done < ${file}
+}
+# Define Function - phase this one out
+## Define Template for Global Variables
+function grid-config_template(){
+	# Originally obtained from default definitions
+	## can be updated with user-input
+CONFIG=$(cat <<-EOF
 GRID_ADMIN='sgeadmin'
 GRID_COMPUTE_NODES=''
 GRID_CONFIG_TEMPLATE=${HOME}'/.grid/.gconf_template'
@@ -18,105 +93,19 @@ GRID_START='engine'
 GRID_STOP='engine'
 SAFETYKEY=''
 SGE_ROOT='/opt/ogs'
-
-# Define Function
-## Help
-function grid-agent_help(){
-	help_text=$(cat <<-EOF
-\n
-Syntax : ${0##*/} GLOBALVAR_NAME GLOBALVAR_VALUE
-\n\n
-This program configures global variables for grid management.
-\n\n
--- Default Global Variables :: 
-\n
-\n\t	GRID_ADMIN=${GRID_ADMIN}
-\n\t	GRID_COMPUTE_NODES=${GRID_COMPUTE_NODES}
-\n\t	GRID_CONFIG_TEMPLATE=${GRID_CONFIG_TEMPLATE}
-\n\t	GRID_HOME=${GRID_HOME}
-\n\t	GRID_MASTER_NODE=${GRID_MASTER_NODE}
-\n\t	GRID_NODE_HOME=${GRID_NODE_HOME}
-\n\t	GRID_SSHFS_OPTS=${GRID_SSHFS_OPTS}
-\n\t	GRID_SSHKEY=${GRID_SSHKEY}
-\n\t	GRID_START=${GRID_START}
-\n\t	GRID_STOP=${GRID_STOP}
-\n\t	GRID_USER=${GRID_USER}
-\n\t	SAFETYKEY=${SAFETYKEY}
-\n\t	SGE_ROOT=${SGE_ROOT}
-\n\n
--- Also takes the following options ::
-\n
-\treset          delete configuration file\n
-\tinstall        install grid tools\n
-\tuninstall      remove grid tools\n
-\tbrew-install   <brew package>\n
-\tbrew-uninstall <brew package>\n
-\n
 EOF
-)
-echo -e ${help_text}
-}
-# Define Function
-## Print Current Configuration to Screen and Ask User for Modifications
-function grid-config(){
-	# Check for existing configuration files
-	grid-config_check
-	# Run a brew install/uninstall on list of remote hosts
-	[ ! -z "${GRID_BREW}" ] || [ ! -z "${GRID_UNBREW}" ] && grid-config_brew
-	# Install grid-tools on list of remote hosts
-	[ ! -z "${GRID_INSTALL}" ] && grid-config_install-tools	
-}
-# Define Function
-## Check for existence of configuration file
-function grid-config_check(){
-	# Check for File Reset
-	[ -f "${GRID_CONFIG_TEMPLATE}" ] && [ ! -z "${reset}" ] && rm -v ${GRID_CONFIG_TEMPLATE}
-	# Read existing File and place into namespace if it doesnt exist
-	if [ -f "${GRID_CONFIG_TEMPLATE}" ]; then
-		echo 'Global Configuration for Grid Services'
-		echo "$(cat $GRID_CONFIG_TEMPLATE)"
-		read -p "[A]ccept/[E]dit Settings?  " proceed
-		if [ "${proceed}" = 'E' ] || [ "${proceed}" = 'Edit' ]; then
-			grid-config_editconf
-		else
-			eval "$(echo $(cat ${GRID_CONFIG_TEMPLATE}))"
-		fi
-	fi
-	# Populate namespace if config template variable is not defined
-	[ -z "${CONFIG}" ] && grid-config_template
-	# Create Configuration Directory & Template File if They Don't Exist
-	[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE})
-	[ ! -f "${GRID_CONFIG_TEMPLATE}" ] && echo "${CONFIG}" > ${GRID_CONFIG_TEMPLATE} && grid-config_check
-}
-# Define Function
-## Populte Namespace with Template for Global Variables
-function grid-config_template(){
-	# Originally obtained from default definitions
-	## can be updated with user-input
-	CONFIG=$(cat <<-EOF
-	GRID_ADMIN=${GRID_ADMIN}
-	GRID_COMPUTE_NODES=${GRID_COMPUTE_NODES}
-	GRID_CONFIG_TEMPLATE=${GRID_CONFIG_TEMPLATE}
-	GRID_HOME=${GRID_HOME}
-	GRID_MASTER_NODE=${GRID_MASTER_NODE}
-	GRID_NODE_HOME=${GRID_NODE_HOME}
-	GRID_SSHFS_OPTS=${GRID_SSHFS_OPTS}
-	GRID_SSHKEY=${GRID_SSHKEY}		
-	GRID_START=${GRID_START}
-	GRID_STOP=${GRID_STOP}
-	GRID_USER=${GRID_USER}
-	SAFETYKEY=${SAFETYKEY}
-	SGE_ROOT=${SGE_ROOT}
-EOF
-)
-	# Populate namespace
-	eval $(echo "${CONFIG}")
+      )
+eval $(echo "${CONFIG}")
+# Create Configuration Directory & Template File if They Don't Exist
+[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE})
+[ ! -f "${GRID_CONFIG_TEMPLATE}" ] && echo "${CONFIG}" > ${GRID_CONFIG_TEMPLATE} && grid-config_check
 }
 # Define Function
 ## Retrieve User Input
 ##	--  why don't you just open the config file with emacs or text editor? (some people may not know how to use?)
 function grid-config_editconf(){
-	emacs ${GRID_CONFIG_TEMPLATE} && grid-config_template
+    local file=${1}
+    emacs ${file}
 }
 # Define Function
 ## Brew install
@@ -130,15 +119,16 @@ function grid-config_brew(){
 # Define Function
 ## Install grid-tools and add to path
 function grid-config_install-tools(){
-	for host in ${GRID_COMPUTE_NODES}; do
-		[ "${GRID_INSTALL}" = "install" ] && echo '🛠 🖥  Installing Grid Tools:  '${host} && ssh ${GRID_USER}'@'${host} 'source ${HOME}/.bash_profile; [ ! -d ${HOME}/grid-tools ] && git clone http://github.com/seldamat/grid-tools.git ${HOME}/grid-tools; [ -d ${HOME}/grid-tools ] && cd ${HOME}/grid-tools && git pull; checkpath=$(echo ${PATH} | grep -o ${HOME}/grid-tools); [ -z ${checkpath} ] && echo -e "\n#Add Grid Tools to Path\n export PATH=${PATH}:${HOME}/grid-tools\n" >> ${HOME}/.bash_profile; source ~/.bash_profile'
-		[ "${GRID_INSTALL}" = "uninstall" ] && echo '🛠 🖥  Uninstalling Grid Tools:  '${host} && ssh ${GRID_USER}'@'${host} '[ -d ${HOME}/grid-tools ] && rm -rv ${HOME}/grid-tools;'
-	done
-} 
+    for host in ${GRID_COMPUTE_NODES}; do
+	[ "${GRID_INSTALL}" = "install" ] && echo '🛠 🖥  Installing Grid Tools:  '${GRID_USER}'@'${host} && ssh ${GRID_USER}'@'${host} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; [ ! -d ${HOME}/grid-tools ] && networksetup -setairportpower en1 on; git clone http://github.com/seldamat/grid-tools.git ${HOME}/grid-tools; [ -d ${HOME}/grid-tools ] && cd ${HOME}/grid-tools && git pull; checkpath=$(echo ${PATH} | grep -o ${HOME}/grid-tools); [ -z ${checkpath} ] && echo -e "\n#Add Grid Tools to Path\n export PATH=${PATH}:${HOME}/grid-tools\n" >> ${HOME}/.bash_profile; source ~/.bash_profile'
+	[ "${GRID_INSTALL}" = "uninstall" ] && echo '🛠 🖥  Uninstalling Grid Tools:  '${GRID_USER}'@'${host} && ssh ${GRID_USER}'@'${host} '[ -d ${​networksetup -listallhardwareportsHOME}/grid-tools ] && rm -rv ${HOME}/grid-tools;'
+    done
+}
 # Define Function
 ## Execute same command on all hosts on grid
 function grid-build_ssh_exe(){
-	for host in ${GRID_COMPUTE_NODES}; do
+    for host in ${GRID_COMPUTE_NODES}; do
+	echo -e "\n📡  Executing Remote Command on ${GRID_USER}@${host}"
 		[ -z "${USER_SUDO}" ] && ssh ${GRID_USER}'@'${host} "${GRID_COMMAND}"
 		[ ! -z "${USER_SUDO}" ] && grid-helper_getuserpw ${GRID_USER} ${host} && ssh ${GRID_USER}'@'${host} "openssl enc -aes-256-cbc -k "${SAFETYKEY}" -in "${SAFETYKEYFILE}" -d | sudo -S ${GRID_COMMAND}"
 	done
