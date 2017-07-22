@@ -176,7 +176,7 @@ function grid-helper_getuserpw(){
 
 # Retrieve Environmental Variables
 
-gconf
+gconf 
 
 while :; do
 	case ${1} in
