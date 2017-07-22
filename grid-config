@@ -70,7 +70,7 @@ function grid-config(){
 ## Check for existence of configuration file
 function grid-config_check(){
 	# Check for File Reset
-	[ -f "${GRID_CONFIG_TEMPLATE}" ] && [ ! -z "${reset}" ] && rm -v ${GRID_CONFIG_TEMPLATE} && exit		
+	[ -f "${GRID_CONFIG_TEMPLATE}" ] && [ ! -z "${reset}" ] && rm -v ${GRID_CONFIG_TEMPLATE}
 	# Read existing File and place into namespace if it doesnt exist
 	if [ -f "${GRID_CONFIG_TEMPLATE}" ]; then
 		echo 'Global Configuration for Grid Services'
@@ -79,7 +79,7 @@ function grid-config_check(){
 		if [ "${proceed}" = 'E' ] || [ "${proceed}" = 'Edit' ]; then
 			grid-config_editconf
 		else
-			eval $(echo $(cat ${GRID_CONFIG_TEMPLATE}))
+			eval "$(echo $(cat ${GRID_CONFIG_TEMPLATE}))"
 		fi
 	fi
 	# Populate namespace if config template variable is not defined
