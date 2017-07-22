@@ -1,0 +1,293 @@
+#!/bin/bash
+#
+# GRID-CONFIG
+##
+##	This program configures global variables for grid management.
+
+# Set default values for global variables
+GRID_ADMIN='sgeadmin'
+GRID_COMPUTE_NODES=''
+GRID_CONFIG_TEMPLATE=${HOME}'/.grid/.gconf_template'
+GRID_HOME='${HOME}/ogs_home'
+GRID_MASTER_NODE=''
+GRID_USER='sgeuser'
+GRID_NODE_HOME='/Volumes/CFMI-CFS/home/'${GRID_USER}'/$(hostname)'
+GRID_SSHFS_OPTS='defer_permissions,follow_symlinks,kernel_cache,reconnect,cipher=arcfour,cache=yes'
+GRID_SSHKEY='ogs_rsa'
+GRID_START='engine'
+GRID_STOP='engine'
+SAFETYKEY=''
+SGE_ROOT='/opt/ogs'
+
+# Define Function
+## Help
+function grid-agent_help(){
+	help_text=$(cat <<-EOF
+\n
+Syntax : ${0##*/} GLOBALVAR_NAME GLOBALVAR_VALUE
+\n\n
+This program configures global variables for grid management.
+\n\n
+-- Default Global Variables :: 
+\n
+\n\t	GRID_ADMIN=${GRID_ADMIN}
+\n\t	GRID_COMPUTE_NODES=${GRID_COMPUTE_NODES}
+\n\t	GRID_CONFIG_TEMPLATE=${GRID_CONFIG_TEMPLATE}
+\n\t	GRID_HOME=${GRID_HOME}
+\n\t	GRID_MASTER_NODE=${GRID_MASTER_NODE}
+\n\t	GRID_NODE_HOME=${GRID_NODE_HOME}
+\n\t	GRID_SSHFS_OPTS=${GRID_SSHFS_OPTS}
+\n\t	GRID_SSHKEY=${GRID_SSHKEY}
+\n\t	GRID_START=${GRID_START}
+\n\t	GRID_STOP=${GRID_STOP}
+\n\t	GRID_USER=${GRID_USER}
+\n\t	SAFETYKEY=${SAFETYKEY}
+\n\t	SGE_ROOT=${SGE_ROOT}
+\n\n
+-- Also takes the following options ::
+\n
+\treset          delete configuration file\n
+\tinstall        install grid tools\n
+\tuninstall      remove grid tools\n
+\tbrew-install   <brew package>\n
+\tbrew-uninstall <brew package>\n
+\n
+EOF
+)
+echo -e ${help_text}
+}
+# Define Function
+## Print Current Configuration to Screen and Ask User for Modifications
+function grid-config(){
+	# Check for existing configuration files
+	grid-config_check
+	# Run a brew install/uninstall on list of remote hosts
+	[ ! -z "${GRID_BREW}" ] || [ ! -z "${GRID_UNBREW}" ] && grid-config_brew
+	# Install grid-tools on list of remote hosts
+	[ ! -z "${GRID_INSTALL}" ] && grid-config_install-tools	
+}
+# Define Function
+## Check for existence of configuration file
+function grid-config_check(){
+	# Check for File Reset
+	[ -f "${GRID_CONFIG_TEMPLATE}" ] && [ ! -z "${reset}" ] && rm -v ${GRID_CONFIG_TEMPLATE} && exit		
+	# Read existing File and place into namespace if it doesnt exist
+	if [ -f "${GRID_CONFIG_TEMPLATE}" ]; then
+		echo 'Global Configuration for Grid Services'
+		echo "$(cat $GRID_CONFIG_TEMPLATE)"
+		read -p "[A]ccept/[E]dit Settings?  " proceed
+		if [ "${proceed}" = 'E' ] || [ "${proceed}" = 'Edit' ]; then
+			grid-config_editconf
+		else
+			eval $(echo $(cat ${GRID_CONFIG_TEMPLATE}))
+		fi
+	fi
+	# Populate namespace if config template variable is not defined
+	[ -z "${CONFIG}" ] && grid-config_template
+	# Create Configuration Directory & Template File if They Don't Exist
+	[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE})
+	[ ! -f "${GRID_CONFIG_TEMPLATE}" ] && echo "${CONFIG}" > ${GRID_CONFIG_TEMPLATE} && grid-config_check
+}
+# Define Function
+## Populte Namespace with Template for Global Variables
+function grid-config_template(){
+	# Originally obtained from default definitions
+	## can be updated with user-input
+	CONFIG=$(cat <<-EOF
+	GRID_ADMIN=${GRID_ADMIN}
+	GRID_COMPUTE_NODES=${GRID_COMPUTE_NODES}
+	GRID_CONFIG_TEMPLATE=${GRID_CONFIG_TEMPLATE}
+	GRID_HOME=${GRID_HOME}
+	GRID_MASTER_NODE=${GRID_MASTER_NODE}
+	GRID_NODE_HOME=${GRID_NODE_HOME}
+	GRID_SSHFS_OPTS=${GRID_SSHFS_OPTS}
+	GRID_SSHKEY=${GRID_SSHKEY}		
+	GRID_START=${GRID_START}
+	GRID_STOP=${GRID_STOP}
+	GRID_USER=${GRID_USER}
+	SAFETYKEY=${SAFETYKEY}
+	SGE_ROOT=${SGE_ROOT}
+EOF
+)
+	# Populate namespace
+	eval $(echo "${CONFIG}")
+}
+# Define Function
+## Retrieve User Input
+##	--  why don't you just open the config file with emacs or text editor? (some people may not know how to use?)
+function grid-config_editconf(){
+	emacs ${GRID_CONFIG_TEMPLATE} && grid-config_template
+}
+# Define Function
+## Brew install
+function grid-config_brew(){
+	for host in ${GRID_COMPUTE_NODES}; do
+		echo '🖥  Brewing:  '${host}
+		[ ! -z "${GRID_BREW}" ] && ssh ${GRID_ADMIN}'@'${host} 'export PATH=$PATH:/usr/local/bin; [ -z "$(which brew)" ] && ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"; brew install '${GRID_BREW}
+		[ ! -z "${GRID_UNBREW}" ] && ssh ${GRID_ADMIN}'@'${host} 'export PATH=$PATH:/usr/local/bin; brew uninstall '${GRID_UNBREW}
+	done
+}
+# Define Function
+## Install grid-tools and add to path
+function grid-config_install-tools(){
+	for host in ${GRID_COMPUTE_NODES}; do
+		[ "${GRID_INSTALL}" = "install" ] && echo '🛠 🖥  Installing Grid Tools:  '${host} && ssh ${GRID_USER}'@'${host} 'source ${HOME}/.bash_profile; [ ! -d ${HOME}/grid-tools ] && git clone http://github.com/seldamat/grid-tools.git ${HOME}/grid-tools; [ -d ${HOME}/grid-tools ] && cd ${HOME}/grid-tools && git pull; checkpath=$(echo ${PATH} | grep -o ${HOME}/grid-tools); [ -z ${checkpath} ] && echo -e "\n#Add Grid Tools to Path\n export PATH=${PATH}:${HOME}/grid-tools\n" >> ${HOME}/.bash_profile; source ~/.bash_profile'
+		[ "${GRID_INSTALL}" = "uninstall" ] && echo '🛠 🖥  Uninstalling Grid Tools:  '${host} && ssh ${GRID_USER}'@'${host} '[ -d ${HOME}/grid-tools ] && rm -rv ${HOME}/grid-tools;'
+	done
+} 
+# Define Function
+## Execute same command on all hosts on grid
+function grid-build_ssh_exe(){
+	for host in ${GRID_COMPUTE_NODES}; do
+		[ -z "${USER_SUDO}" ] && ssh ${GRID_USER}'@'${host} "${GRID_COMMAND}"
+		[ ! -z "${USER_SUDO}" ] && grid-helper_getuserpw ${GRID_USER} ${host} && ssh ${GRID_USER}'@'${host} "openssl enc -aes-256-cbc -k "${SAFETYKEY}" -in "${SAFETYKEYFILE}" -d | sudo -S ${GRID_COMMAND}"
+	done
+}
+# Define Function
+## Securely store passwords on remote host for non-interactive sudo shell (i.e. via ssh without -t but with sudo commands)
+## - can also be used to store local password 
+function grid-helper_getuserpw(){
+	local user=${1}
+	local host=${2}
+	# password is stored in encrypted file with random cipher - global variable: SAFETYKEY, this is used to decrypt below
+	SAFETYKEYFILE="${HOME}/.ssh/.safety.${host}.ogs" && SAFETYKEY=$(pwgen 256)
+	read -sp "👤  Please Enter Password for ${user}@${host}:  " password
+	## TODO
+	#		- cant you just execute these commands remotely and avoid the cp?
+	echo ${password} | openssl enc -aes-256-cbc -k "${SAFETYKEY}" -out "${SAFETYKEYFILE}" && unset password # vulnerable
+	# if host is other than local, copy the password to the remote host so that it can be read via remote command execution for sudo...
+	[ "${host}" != "$(hostname)" ] && echo -e "* Copying Safety Key to ${host}" && scp -v ${SAFETYKEYFILE} ${user}@${host}:'${HOME}/.ssh/' # this should work without password once keys are set up
+	#password=$(openssl enc -aes-256-cbc -k "${SAFETYKEY}" -in "${SAFETYKEYFILE}" -d)
+}
+
+# Parse Options
+while :; do
+	case ${1} in
+		'reset')
+			reset='reset'
+		;;
+		'install')
+			GRID_INSTALL='install'
+		;;
+		'uninstall')
+			GRID_INSTALL='uninstall'
+		;;
+		'superuser')
+			USER_SUDO='superuserdo'
+		;;						
+		'grid-command')
+			if [ -n "${2}" ]; then
+				GRID_COMMAND=${2}
+				shift
+			fi			
+		;;		
+		'brew-install')
+			if [ -n "${2}" ]; then
+				GRID_BREW=${2}
+				shift
+			fi			
+		;;
+		'brew-uninstall')
+			if [ -n "${2}" ]; then
+				GRID_UNBREW=${2}
+				shift
+			fi			
+		;;				
+		'GRID_CONFIG_TEMPLATE')
+			if [ -n "${2}" ]; then
+				GRID_CONFIG_TEMPLATE=${2}
+				shift
+			fi			
+		;;
+		'GRID_COMPUTE_NODES')
+			if [ -n "${2}" ]; then
+				GRID_COMPUTE_NODES=${2}
+				shift
+			fi			
+		;;
+		'GRID_SSHKEY')
+			if [ -n "${2}" ]; then
+				GRID_SSHKEY=${2}
+				shift
+			fi			
+		;;
+		'GRID_ADMIN')
+			if [ -n "${2}" ]; then
+				GRID_ADMIN=${2}
+				shift
+			fi			
+		;;
+		'GRID_USER')
+			if [ -n "${2}" ]; then
+				GRID_USER=${2}
+				shift
+			fi			
+		;;
+		'GRID_MASTER_NODE')
+			if [ -n "${2}" ]; then
+				GRID_MASTER_NODE=${2}
+				shift
+			fi			
+		;;
+		'GRID_HOME')
+			if [ -n "${2}" ]; then
+				GRID_HOME=${2}
+				shift
+			fi			
+		;;
+		'GRID_SSHFS_OPTS')
+			if [ -n "${2}" ]; then
+				GRID_SSHFS_OPTS=${2}
+				shift
+			fi			
+		;;
+		'GRID_NODE_HOME')
+			if [ -n "${2}" ]; then
+				GRID_NODE_HOME=${2}
+				shift
+			fi			
+		;;				
+		'GRID_START')
+			if [ -n "${2}" ]; then
+				GRID_START=${2}
+				shift
+			fi			
+		;;				
+		'GRID_STOP')
+			if [ -n "${2}" ]; then
+				GRID_STOP=${2}
+				shift
+			fi			
+		;;
+		'SAFETYKEY')
+			if [ -n "${2}" ]; then
+				SAFETYKEY=${2}
+				shift
+			fi			
+		;;
+		'SGE_ROOT')
+			if [ -n "${2}" ]; then
+				SGE_ROOT=${2}
+				shift
+			fi			
+		;;														
+		'?'|'-h'|'h'|'-help'|'help'|'--help')
+			grid-agent_help
+			exit
+		;;
+		?*)
+			printf '\n ‼️ Warning: Unknown option: %s\n' "${1}" >&2
+			exit
+			;;
+		*)
+			break		
+	esac
+	shift
+done
+
+# Execute configuration
+grid-config
+
+##
+##
+#
