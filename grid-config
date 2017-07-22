@@ -45,7 +45,6 @@ function grid-config(){
 	[ ! -z "${GRID_BREW}" ] || [ ! -z "${GRID_UNBREW}" ] && grid-config_brew
 	# Install grid-tools on list of remote hosts
 	[ ! -z "${GRID_INSTALL}" ] && grid-config_install-tools
-	echo ${GRID_COMMAND}
 	[ ! -z "{GRID_COMMAND}" ] && grid-build_ssh_exe
 }
 # Define Function
@@ -129,16 +128,13 @@ function grid-config_install-tools(){
 ## Execute same command on all hosts on grid
 function grid-build_ssh_exe(){
     for host in ${GRID_COMPUTE_NODES}; do
-	echo -e "\n📡  Executing Remote Command on ${GRID_USER}@${host}"
+	echo -e "\n📡  Executing Remote Command on ${GRID_USER}@${host}:${GRID_COMMAND}"
 		[ -z "${USER_SUDO}" ] && ssh ${GRID_USER}'@'${host} "${GRID_COMMAND}"
 		[ ! -z "${USER_SUDO}" ] && grid-helper_getuserpw ${GRID_USER} ${host} && ssh ${GRID_USER}'@'${host} "openssl enc -aes-256-cbc -k "${SAFETYKEY}" -in "${SAFETYKEYFILE}" -d | sudo -S ${GRID_COMMAND}"
 	done
 }
 # Define Function
-## Securenetworkservices
-networksetup -listallhardwareports
-networksetup -detectnewhardware
-networksetuply store passwords on remote host for non-interactive sudo shell (i.e. via ssh without -t but with sudo commands)
+## Securely store passwords on remote host for non-interactive sudo shell (i.e. via ssh without -t but with sudo commands)
 ## - can also be used to store local password 
 function grid-helper_getuserpw(){
 	local user=${1}
