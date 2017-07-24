@@ -32,11 +32,11 @@ function grid-agent_setup(){
 	## copy local configuration file to all hosts
 	echo -e '\n* Copying Configuration to: '${GRID_COMPUTE_NODES}; $(pwd)/grid-config intremexe "[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE}); scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/" user $(whoami)
 	## cache sudo password on all hosts
-	[ ! -z "${setup}" ] && echo -e '\n* Cache Sudo'; $(pwd)/grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo" user $(whoami)
+	echo -e '\n* Cache Sudo'; $(pwd)/grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo" user $(whoami)
 	## set up keyless log in between all pairs of hosts
-	[ ! -z "${setup}" ] && echo -e '\n* Setting Up SSH Keys'; GRID_START='keychain' && grid-agent_icebreaker
+	echo -e '\n* Setting Up SSH Keys'; GRID_START='keychain' && grid-agent_icebreaker
 	## mount grid file systems on all hosts
-	[ ! -z "${setup}" ] && echo -e '\n* Mounting Grid File Systems'; GRID_START='mount' && grid-agent_synchronize	
+	echo -e '\n* Mounting Grid File Systems'; GRID_START='mount' && grid-agent_synchronize	
 }
 # Define Function
 ## Start Relevant Services
@@ -210,10 +210,10 @@ while :; do
     esac
     shift
 done
-# Load Environmental Variables from Default File
-## sourcing loads all f(x)'s and variables into environment
+# Load Environmental Variables from Default File - sourcing loads all f(x)'s and variables into environment
 . $(pwd)/grid-config config q
-
+## Execute :: Set Up Everything For First Time
+[ ! -z "${setup}" ] && grid-agent_setup
 # Execute :: Start Services
 [ -z "${setup}" ] && grid-agent_startservices
 ##
