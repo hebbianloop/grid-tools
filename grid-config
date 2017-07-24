@@ -31,6 +31,7 @@ GRID_COMMAND=''
 LOAD_CONFIG=''
 GRID_BREW=''
 GRID_UNBREW=''
+SSH_OPTS=''
 # Define Function
 ## Print Current Configuration to Screen and Ask User for Modifications
 function grid-config(){
@@ -129,8 +130,8 @@ function grid-config_startkeychain(){
 function grid-config_ssh-exe(){
     for host in ${GRID_COMPUTE_NODES}; do
 	echo -e "\n📡  Sending Command >> ${GRID_USER}@${host}: ${GRID_COMMAND}"
-	[ -z "${USER_SUDO}" ] && ssh ${GRID_USER}'@'${host} "${GRID_COMMAND}"
-	[ ! -z "${USER_SUDO}" ] && ssh ${GRID_USER}'@'${host} ". ${HOME}/grid-tools/grid-config cache-sudo; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S ${GRID_COMMAND}"
+	[ -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${GRID_USER}'@'${host} "${GRID_COMMAND}"
+	[ ! -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${GRID_USER}'@'${host} ". ${HOME}/grid-tools/grid-config cache-sudo; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S ${GRID_COMMAND}"
 	echo '⚙️ ---> executed'
     done
 }
@@ -233,6 +234,13 @@ while :; do
 		shift		
 	    fi	    
 	    ;;
+	'tty-remexe')	    
+	    if [ -n "${2}" ]; then		
+		GRID_COMMAND=${2}		
+		SSH_OPTS='-t'
+		shift		
+	    fi	    
+	    ;;	    
 	'config')
 	    LOAD_CONFIG='yes'
 	    ;;
