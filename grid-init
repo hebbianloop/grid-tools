@@ -40,38 +40,41 @@ function grid-agent_sgedeamon(){
     local node=''
     # Start SGE Master Deamon
     if [ ! -z "$(echo ${GRID_START} | grep -o 'engine')" ]; then
-	echo -e "\nStarting Master Host: ${GRID_ADMIN}@${GRID_MASTER_NODE}"
-	ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_qmaster is not running - check environment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Master Host was started successfully - sge_qmaster is running with PID: ${service}"'
-	for node in ${GRID_COMPUTE_NODES}; do
-	    echo -e "\nWaking Worker Node: ${GRID_ADMIN}@${node}"
-	    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_execd is not running - check enviroment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Execution Host was started successfully - sge_execd is running with PID: ${service}"'
-	done
+		echo -e "\nStarting Master Host: ${GRID_ADMIN}@${GRID_MASTER_NODE}"
+		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_qmaster is not running - check environment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Master Host was started successfully - sge_qmaster is running with PID: ${service}"'
+		for node in ${GRID_COMPUTE_NODES}; do
+		    echo -e "\nWaking Worker Node: ${GRID_ADMIN}@${node}"
+		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_execd is not running - check enviroment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Execution Host was started successfully - sge_execd is running with PID: ${service}"'
+		done
     elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'engine')" ]; then
-	echo -e "\nStopping Master Host: ${GRID_ADMIN}@{GRID_MASTER_NODE}"
-	ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_qmaster")); [ ! -z "${service}" ] && pkill sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "⛔ QMaster Host:'${GRID_MASTER_NODE}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_qmaster is still running with PID: ${service}"'
-	for node in ${GRID_COMPUTE_NODES}; do
-	    echo -e "\nClocking out Worker Node: ${GRID_ADMIN}@${node}"
-	    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && pkill sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "⛔ Execution Node:'${node}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_execd is still running with PID: ${service}"'
-	done
+		echo -e "\nStopping Master Host: ${GRID_ADMIN}@{GRID_MASTER_NODE}"
+		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_qmaster")); [ ! -z "${service}" ] && pkill sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "⛔ QMaster Host:'${GRID_MASTER_NODE}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_qmaster is still running with PID: ${service}"'
+		for node in ${GRID_COMPUTE_NODES}; do
+		    echo -e "\nClocking out Worker Node: ${GRID_ADMIN}@${node}"
+		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && pkill sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "⛔ Execution Node:'${node}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_execd is still running with PID: ${service}"'
+		done
     fi
 }
 # Define Function
 ## Configure KEYCHAIN Between All Nodes
 function grid-agent_icebreaker(){
+	local user=''
     # Form trust from Master to All Nodes
     if [ ! -z "$(echo ${GRID_START} | grep -o 'keychain')" ]; then
-	# Loop through each compute node
-       	for node in ${GRID_COMPUTE_NODES}; do
-	    grid-agent_keychain ${GRID_USER} ${node} ${GRID_MASTER_NODE}
-	    [ ! -z "${GRID_ADMIN}" ] || [ "${GRID_ADMIN}" != "${GRID_USER}" ] && grid-agent_keychain ${GRID_ADMIN} ${node} ${GRID_MASTER_NODE}
-	done
+    	for user in ${GRID_USER}; do
+			# Loop through each compute node
+		    for node in ${GRID_COMPUTE_NODES}; do
+			    grid-agent_keychain ${user} ${node} ${GRID_MASTER_NODE}
+			done
+		done
     elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'keychain')" ]; then
-	# Loop through each compute node
-	for node in ${GRID_COMPUTE_NODES}; do
-	    echo ${node}
-	    grid-agent_keychain ${GRID_USER} ${node} ${GRID_MASTER_NODE} '--reset'
-	    [ ! -z "${GRID_ADMIN}" ] || [ "${GRID_ADMIN}" != "${GRID_USER}" ] && grid-agent_keychain ${GRID_ADMIN} ${node} ${GRID_MASTER_NODE} '--reset'
-	done
+		# Loop through each compute node
+		for user in ${GRID_USER}; do
+			for node in ${GRID_COMPUTE_NODES}; do
+			    echo ${node}
+			    grid-agent_keychain ${user} ${node} ${GRID_MASTER_NODE} '--reset'
+			done
+		done
     fi	
 }
 # Define Function
@@ -81,21 +84,23 @@ function grid-agent_synchronize(){
     if [ ! -z "$(echo ${GRID_START} | grep -o 'mount')" ]; then
 	## Loop through each compute node and mount the relevant file systems
        	for node in ${GRID_COMPUTE_NODES}; do
-	    # Mount Source File System on Each Node
-	    local sshfs_opts=$(echo 'allow_other,' ${GRID_SSHFS_OPTS}) 	    ## Update SSHFS OPTS with allow other
-	    grid-agent_sshfs ${GRID_ADMIN} ${GRID_MASTER_NODE} ${SGE_ROOT} ${node} ${SGE_ROOT} 'enable_sudo' "${sshfs_opts}"
-	    # Mount User Home Directory on Each Node
-	    local sshfs_opts=$(echo ${GRID_SSHFS_OPTS}) 	    ## no need to allow other for user (respect their privacy!)
-	    grid-agent_sshfs ${GRID_USER} ${GRID_MASTER_NODE} ${GRID_NODE_HOME} ${node} ${GRID_HOME} '' "${sshfs_opts}"
-	done
+		    # Mount Source File System on Each Node
+		    local sshfs_opts=$(echo 'allow_other,' ${GRID_SSHFS_OPTS}) 	    ## Update SSHFS OPTS with allow other
+		    grid-agent_sshfs ${GRID_ADMIN} ${GRID_MASTER_NODE} ${SGE_ROOT} ${node} ${SGE_ROOT} 'enable_sudo' "${sshfs_opts}"
+		    # Mount User Home Directory on Each Node
+		    local sshfs_opts=$(echo ${GRID_SSHFS_OPTS}) 	    ## no need to allow other for user (respect their privacy!)
+		    for user in ${GRID_USER}; do
+		    	grid-agent_sshfs ${user} ${GRID_MASTER_NODE} ${GRID_NODE_HOME} ${node} ${GRID_HOME} '' "${sshfs_opts}"
+		    done
+		done
     elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'umount')" ]; then
-	## Loop through each compute node and unmount the relevant file system
-	for node in ${GRID_COMPUTE_NODES}; do
-	    # Unmount Source File Systems on Each Node
-	    ssh ${GRID_ADMIN}'@'${node} '[ -d "'${SGE_ROOT}'/" ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S diskutil umount force '${SGE_ROOT}'/; [ -d "'${SGE_ROOT}'/" ] && echo "!! Unmount Failed"; [ ! -d "'${SGE_ROOT}'/" ] && echo "⏫  Unmounted ${SGE_ROOT}"'
-	    # Unmount User Home Directory on Each Node
-	    ssh ${GRID_ADMIN}'@'${node} '[ -d "'${GRID_HOME}'/" ] && diskutil umount force '${GRID_HOME}'/; [ -d "'${GRID_HOME}'/" ] && echo "!! Unmount Failed"; [ ! -d "'${GRID_HOME}'/" ] && echo "⏫  Unmounted Grid Home Folder: '${GRID_HOME}'"'
-	done
+		## Loop through each compute node and unmount the relevant file system
+		for node in ${GRID_COMPUTE_NODES}; do
+		    # Unmount Source File Systems on Each Node
+		    ssh ${GRID_ADMIN}'@'${node} '[ -d "'${SGE_ROOT}'/" ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S diskutil umount force '${SGE_ROOT}'/; [ -d "'${SGE_ROOT}'/" ] && echo "!! Unmount Failed"; [ ! -d "'${SGE_ROOT}'/" ] && echo "⏫  Unmounted ${SGE_ROOT}"'
+		    # Unmount User Home Directory on Each Node
+		    ssh ${GRID_ADMIN}'@'${node} '[ -d "'${GRID_HOME}'/" ] && diskutil umount force '${GRID_HOME}'/; [ -d "'${GRID_HOME}'/" ] && echo "!! Unmount Failed"; [ ! -d "'${GRID_HOME}'/" ] && echo "⏫  Unmounted Grid Home Folder: '${GRID_HOME}'"'
+		done
     fi
 }
 # Define Function
@@ -164,21 +169,21 @@ while :; do
 		;;
 	'start')
        	if [ -n ${2} ]; then
-		shift
-		GRID_START=$@
-		echo $GRID_START
-		break
+			shift
+			GRID_START=$@
+			echo $GRID_START
+			break
 	    else
-		GRID_START="keychain mount engine"
+			GRID_START="keychain mount engine"
 	    fi
 	    ;;
 	'stop')
 	    if [ -n ${2} ]; then
-		shift
-		GRID_STOP=$@
-		break
+			shift
+			GRID_STOP=$@
+			break
 	    else
-		GRID_STOP="engine"
+			GRID_STOP="engine"
 	    fi
 	    ;;
 	'?'|'-h'|'h'|'-help'|'help'|'--help')
