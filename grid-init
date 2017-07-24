@@ -196,7 +196,7 @@ done
 . $(pwd)/grid-config config q
 # Execute :: Set Up Everything For First Time
 ## configure parameters and install grid tools on all hosts, load all parameters into namespace
-[ ! -z "${setup}" ] && . grid-config 'install' && .grid-config config q
+[ ! -z "${setup}" ] && . grid-config 'install' && . $(pwd)/grid-config config q
 ## copy local configuration file to all hosts
 [ ! -z "${setup}" ] && grid-config remexe "scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/"
 ## cache sudo password on all hosts
