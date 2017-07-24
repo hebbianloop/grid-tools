@@ -121,10 +121,13 @@ function grid-agent_sshfs(){
 	# Mount file systems with or without sudo depending on use case
 	echo -e "* Mounting remote file systems: ${user}@${host}"
 	if [ -z "${enable_sudo}" ]; then
-		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; echo "keychain loaded" && [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}' && echo "made dir";  echo sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
+		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; && [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}'; sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
 	else
+		. $(pwd)/grid-config config q
+		echo ${SAFETYKEY}-key
+		echo ${SAFETYKEYFILE}-keyfile
 	    # log in and mount with sudo
-	    echo ssh ${user}'@'${client} '[ ! -d '${sshfs_mountpoint}' ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S mkdir -vp '${sshfs_mountpoint}' && echo "made dir"; export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; echo openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
+	    ssh ${user}'@'${client} '[ ! -d '${sshfs_mountpoint}' ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S mkdir -vp '${sshfs_mountpoint}'; export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
 	fi
 }
 # Define Function
