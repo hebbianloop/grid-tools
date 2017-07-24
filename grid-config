@@ -36,7 +36,7 @@ function grid-config(){
 	[ -z "${quiet}" ] && echo '---------------------------'		
 	echo '🗣 '$(whoami)'@'$(hostname)
     # Cache the sudoer password on all compute nodes
-    [ ! -z "${CACHE_SUDO}" ] && grid-config_getuserpw && echo '⚙️ --> return' && return 
+    [ ! -z "${CACHE_SUDO}" ] && grid-config_getuserpw && echo '  ⚙️ --> return' && return 
     # Load variables into namespace
     [ ! -z "${LOAD_CONFIG}" ] && grid-config_loadvars ${GRID_CONFIG_TEMPLATE}
     # Check for existing configuration files
@@ -154,7 +154,7 @@ function grid-config_ssh-exe(){
     				echo '⚠️  Proceeding without keys..'
     			fi
 	    	fi
-			echo -e "  📡  Sending Command >> ${u}@${host}: ${GRID_COMMAND}"
+			echo -e "📡  Sending Command >> ${u}@${host}: ${GRID_COMMAND}"
 			if [ -z "${USER_SUDO}" ]; then
 				ssh ${SSH_OPTS} ${u}'@'${host} "${GRID_COMMAND}"
 			else
@@ -170,8 +170,8 @@ function grid-config_ssh-exe(){
 function grid-config_cachesudo(){
 	local user=${1}
 	local host=${2}
-	# Install/Update Grid-Tools
-	grid-config_install-tools ${user} ${host}
+	# Install/Update Grid-Tools - should clean this up so that you don't have to set and unset install
+	GRID_INSTALL='install' && grid-config_install-tools ${user} ${host} && GRID_INSTALL=''
 	# Copy Config
 	echo -e "\n* Copying Configuration from $(whoami)@$(hostname)"
 	ssh -t ${user}@${host} '[ ! -d ${HOME}/.grid/ ] && mkdir -vp ${HOME}/.grid; scp '$(whoami)'@'$(hostname)':'${GRID_CONFIG_TEMPLATE}' ${HOME}/.grid/'
