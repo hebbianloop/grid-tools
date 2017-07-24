@@ -85,7 +85,7 @@ function grid-agent_synchronize(){
 	## Loop through each compute node and mount the relevant file systems
        	for node in ${GRID_COMPUTE_NODES}; do
 		    # Mount Source File System on Each Node
-		    local sshfs_opts=$(echo 'allow_other,' ${GRID_SSHFS_OPTS}) 	    ## Update SSHFS OPTS with allow other
+		    local sshfs_opts=$(echo 'allow_other,'${GRID_SSHFS_OPTS}) 	    ## Update SSHFS OPTS with allow other
 		    grid-agent_sshfs ${GRID_ADMIN} ${GRID_MASTER_NODE} ${SGE_ROOT} ${node} ${SGE_ROOT} 'enable_sudo' "${sshfs_opts}"
 		    # Mount User Home Directory on Each Node
 		    local sshfs_opts=$(echo ${GRID_SSHFS_OPTS}) 	    ## no need to allow other for user (respect their privacy!)
@@ -128,9 +128,6 @@ function grid-agent_sshfs(){
 	if [ -z "${enable_sudo}" ]; then
 		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; && [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}'; sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
 	else
-		#. $(pwd)/grid-config config q # is this line required
-		 echo ${SAFETYKEY}-key
-		 echo ${SAFETYKEYFILE}-keyfile		
 	    # log in and mount with sudo
 	    echo ssh ${user}'@'${client} '[ ! -d '${sshfs_mountpoint}' ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S mkdir -vp '${sshfs_mountpoint}'; export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
 	fi
