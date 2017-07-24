@@ -115,7 +115,7 @@ function grid-config_install-tools(){
 	[ "${GRID_INSTALL}" = "install" ] && echo -e '\n🛠 🖥  Installing Grid Tools:  '${GRID_USER}'@'${host} && ssh ${GRID_USER}'@'${host} 'export PATH=$PATH:/usr/local/bin; [ -d ${HOME}/grid-tools ] && cd ${HOME}/grid-tools && git pull; [ ! -d ${HOME}/grid-tools ]; git clone http://github.com/seldamat/grid-tools.git ${HOME}/grid-tools; source ${HOME}/.bash_profile; checkpath=$(echo ${PATH} | grep -o ${HOME}/grid-tools); [ -z ${checkpath} ] && echo -e "\n#Add Grid Tools to Path\n export PATH=${PATH}:${HOME}/grid-tools\n" >> ${HOME}/.bash_profile; exit'
 	[ "${GRID_INSTALL}" = "uninstall" ] && echo -e '\n🛠 🖥  Uninstalling Grid Tools:  '${GRID_USER}'@'${host} && ssh ${GRID_USER}'@'${host} '[ -d ${HOME}/grid-tools ] && rm -frv ${HOME}/grid-tools; exit'
     done
-    echo '⚙️ ---> installed'
+    echo '⚙️ ---> grid-tools'
 }
 # Define Function
 ## Start keychain
@@ -132,7 +132,7 @@ function grid-config_ssh-exe(){
 	echo -e "\n📡  Sending Command >> ${GRID_USER}@${host}: ${GRID_COMMAND}"
 	[ -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${GRID_USER}'@'${host} "${GRID_COMMAND}"
 	[ ! -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${GRID_USER}'@'${host} ". ${HOME}/grid-tools/grid-config cache-sudo; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S ${GRID_COMMAND}"
-	echo '⚙️ ---> executed'
+	echo '⚙️ ---> remote command executed'
     done
 }
 # Define Function
@@ -175,26 +175,32 @@ EOF
 }
 # Define Function
 ## Help
-function grid-agent_help(){
+function grid-config_help(){
 	help_text=$(cat <<-EOF
 \n
 Syntax : ${0##*/} [reset|(un/in)stall|superuser] [remexe|brew-(un/in)stall COMMAND] [file FILENAME]
 \n\n
 This program configures global variables for grid management.
 \n\n
--- Options ::
+Local Options (executed only on localhost) ::
 \n
-\treset         delete local configuration file\n
-\tfile          load/create new configuration file
-
-The following commands are executed on every node defined in configuration file ::
-\tinstall        install grid tools\n
-\tuninstall      remove grid tools\n
-\tbrew-install   install package\n
-\tbrew-uninstall uninstall package\n
-\tgrid-command   remote execution of command\n
-\tstart-keychain start ssh-agent\n
-\tload-config    load a configuration file
+\tload\t\t<FILE>\t    load a configuration file\n
+\treset\t\t\t         delete local configuration file\n
+\tconfig\t\t\t  populate local namespace\n
+\tquiet\t\t\t  do not print config to screen or ask user to edit\n
+\tcache-sudo\t\t  cache sudo password for auto-mount
+\n\n
+Compute Pool Options (executed on all worker nodes) ::
+\n
+\tinstall\t\t\t\t     install grid tools with git\n
+\tuninstall\t\t\t      delete grid tools\n
+\tkeychain\t\t\t start ssh-agent and add grid keys\n
+\tbrew\t\t<PACKAGENAME>\t  install package with brew\n
+\tunbrew\t\t<PACKAGENAME>\t   uninstall package with brew\n
+\tremexe\t\t<COMMAND>\t   remote execution of command\n
+\tintremexet\t<COMMAND>\t   remote execution of command with interactive ssh tty\n
+\n
+\n Print this message with >> ${0##*/} ?|-h|h|-help|help|--help
 \n
 EOF
 )
@@ -234,7 +240,7 @@ while :; do
 		shift		
 	    fi	    
 	    ;;
-	'tty-remexe')	    
+	'intremexe')	    
 	    if [ -n "${2}" ]; then		
 		GRID_COMMAND=${2}		
 		SSH_OPTS='-t'
@@ -263,7 +269,7 @@ while :; do
 	    fi	    
 	    ;;		   
 	'?'|'-h'|'h'|'-help'|'help'|'--help')
-	    grid-agent_help
+	    grid-config_help
 	    exit
 	    ;;
 	?*)
