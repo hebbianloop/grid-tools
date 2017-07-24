@@ -27,7 +27,7 @@ SSH_OPTS=''
 USER=''
 # Define Function
 ## Print Current Configuration to Screen and Ask User for Modifications
-function grid-config(){
+function grid-config_run(){
     [ -z "${quiet}" ] && echo '🛠   CONFIGURATE GRID  🛠'    
     [ -z "${quiet}" ] && echo '___________________________'
     [ -z "${quiet}" ] && echo '|     🖥 -🖥 -🖥 -🖥 -🖥       |'
@@ -154,14 +154,14 @@ function grid-config_ssh-exe(){
     				echo '⚠️  Proceeding without keys..'
     			fi
 	    	fi
-			echo -e "📡  Sending Command >> ${u}@${host}: ${GRID_COMMAND}"
+			echo -e "\n📡  Sending Command >> ${u}@${host}: ${GRID_COMMAND}\n"
 			if [ -z "${USER_SUDO}" ]; then
 				ssh ${SSH_OPTS} ${u}'@'${host} "${GRID_COMMAND}"
 			else
 				grid-config_cachesudo ${u} ${host}
 				ssh ${SSH_OPTS} ${u}'@'${host} 'openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in ${HOME}/.grid/.safety.$(hostname).ogs  -d | sudo -S '${GRID_COMMAND}''
 			fi
-			echo '  ⚙️ ---> remote command executed'
+			echo -e '\n  ⚙️ ---> remote command executed'
 	    done
 	done
 }
@@ -175,8 +175,8 @@ function grid-config_cachesudo(){
 	# Copy Config
 	echo -e "\n* Copying Configuration from $(whoami)@$(hostname)"
 	ssh -t ${user}@${host} '[ ! -d ${HOME}/.grid/ ] && mkdir -vp ${HOME}/.grid; scp '$(whoami)'@'$(hostname)':'${GRID_CONFIG_TEMPLATE}' ${HOME}/.grid/'
-	echo -e "\n* Caching sudo $(whoami)@$(hostname)"
-	ssh -t ${user}@${host} '${HOME}/grid-tools/grid-config q cache-sudo'
+	echo -e "\n* Checking for sudo $(whoami)@$(hostname)"
+	ssh -t ${user}@${host} '[ ! -f ${HOME}/.grid/.safety.$(hostname).ogs ] && ${HOME}/grid-tools/grid-config q cache-sudo'
 }
 # Define Function
 ## Securely store passwords on remote host for non-interactive sudo shell (i.e. via ssh without -t but with sudo commands)
@@ -332,7 +332,7 @@ while :; do
 done
 
 # Execute configuration
-grid-config
+grid-config_run
 echo '* * * done * * *'
 ##
 ##
