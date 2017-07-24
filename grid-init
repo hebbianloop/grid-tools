@@ -25,7 +25,21 @@
 ##				- package setup as a function?
 ##
 # Define Function
-# Start Relevant Services
+## Set Up Everything For First Time
+function grid-agent_setup(){
+	## configure parameters and install grid tools on all hosts, load all parameters into namespace
+	echo -e '\nChecking for latest installation...\n' && $(pwd)/grid-config 'install' && . $(pwd)/grid-config config q
+	## copy local configuration file to all hosts
+	echo -e '\n* Copying Configuration to: '${GRID_COMPUTE_NODES}; $(pwd)/grid-config intremexe "[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE}); scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/" user $(whoami)
+	## cache sudo password on all hosts
+	[ ! -z "${setup}" ] && echo -e '\n* Cache Sudo'; $(pwd)/grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo" user $(whoami)
+	## set up keyless log in between all pairs of hosts
+	[ ! -z "${setup}" ] && echo -e '\n* Setting Up SSH Keys'; GRID_START='keychain' && grid-agent_icebreaker
+	## mount grid file systems on all hosts
+	[ ! -z "${setup}" ] && echo -e '\n* Mounting Grid File Systems'; GRID_START='mount' && grid-agent_synchronize	
+}
+# Define Function
+## Start Relevant Services
 function grid-agent_startservices(){
     # Configure Keychain Between All Nodes
     grid-agent_icebreaker
@@ -126,10 +140,10 @@ function grid-agent_sshfs(){
 	# Mount file systems with or without sudo depending on use case
 	echo -e "* Mounting remote file systems: ${user}@${host}"
 	if [ -z "${enable_sudo}" ]; then
-		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; && [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}'; sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
+		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; && [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}'; sshfs '${user}'@'${host}':'${sshfs_remotefs}'/ '${sshfs_mountpoint}'/ -o '${sshfs_opts}''
 	else
 	    # log in and mount with sudo
-	    echo ssh ${user}'@'${client} '[ ! -d '${sshfs_mountpoint}' ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S mkdir -vp '${sshfs_mountpoint}'; export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
+	    ssh ${user}'@'${client} '[ ! -d '${sshfs_mountpoint}' ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S mkdir -vp '${sshfs_mountpoint}'; export PATH=${PATH}:/usr/local/bin && eval `keychain --agents ssh --eval`; openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S sshfs '${user}'@'${host}':'${sshfs_remotefs}'/ '${sshfs_mountpoint}'/ -o '${sshfs_opts}''
 	fi
 }
 # Define Function
@@ -199,17 +213,7 @@ done
 # Load Environmental Variables from Default File
 ## sourcing loads all f(x)'s and variables into environment
 . $(pwd)/grid-config config q
-# Execute :: Set Up Everything For First Time
-## configure parameters and install grid tools on all hosts, load all parameters into namespace
-[ ! -z "${setup}" ] && $(pwd)/grid-config 'install' && . $(pwd)/grid-config config q
-## copy local configuration file to all hosts
-[ ! -z "${setup}" ] && echo -e '\n* Copying Configuration File to: '${GRID_COMPUTE_NODES}; $(pwd)/grid-config intremexe "[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE}); scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/" user $(whoami)
-## cache sudo password on all hosts
-[ ! -z "${setup}" ] && echo -e '\n* Cache Sudo'; $(pwd)/grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo" user $(whoami)
-## set up keyless log in between all pairs of hosts
-[ ! -z "${setup}" ] && echo -e '\n* Setting Up SSH Keys'; GRID_START='keychain' && grid-agent_icebreaker
-## mount grid file systems on all hosts
-[ ! -z "${setup}" ] && echo -e '\n* Mounting Grid File Systems'; GRID_START='mount' && grid-agent_synchronize
+
 # Execute :: Start Services
 [ -z "${setup}" ] && grid-agent_startservices
 ##
