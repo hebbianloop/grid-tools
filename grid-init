@@ -23,10 +23,17 @@
 ##				- update help
 ##				- add uninstall (reverse actions of setup)
 ##				- package setup as a function?
+##				- check if mounts are successful
+##				- more information when looping through hosts..
+##				- weird things with different user homes being moutned
 ##
 # Define Function
 ## Set Up Everything For First Time
 function grid-agent_setup(){
+	## TODO
+	##		- use less passwords.. too much typing
+	##		- clean up all the output to the screen
+	##		- have check points to route where you're oging
 	## configure parameters and install grid tools on all hosts, load all parameters into namespace
 	echo -e '\nChecking for latest installation...\n' && $(pwd)/grid-config 'install' && . $(pwd)/grid-config config q
 	## copy local configuration file to all hosts
@@ -55,7 +62,7 @@ function grid-agent_sgedeamon(){
     # Start SGE Master Deamon
     if [ ! -z "$(echo ${GRID_START} | grep -o 'engine')" ]; then
 		echo -e "\nStarting Master Host: ${GRID_ADMIN}@${GRID_MASTER_NODE}"
-		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_qmaster is not running - check environment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Master Host was started successfully - sge_qmaster is running with PID: ${service}"'
+		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile  > /dev/null; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_qmaster is not running - check environment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Master Host was started successfully - sge_qmaster is running with PID: ${service}"'
 		for node in ${GRID_COMPUTE_NODES}; do
 		    echo -e "\nWaking Worker Node: ${GRID_ADMIN}@${node}"
 		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_execd is not running - check enviroment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Execution Host was started successfully - sge_execd is running with PID: ${service}"'
@@ -65,7 +72,7 @@ function grid-agent_sgedeamon(){
 		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_qmaster")); [ ! -z "${service}" ] && pkill sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "⛔ QMaster Host:'${GRID_MASTER_NODE}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_qmaster is still running with PID: ${service}"'
 		for node in ${GRID_COMPUTE_NODES}; do
 		    echo -e "\nClocking out Worker Node: ${GRID_ADMIN}@${node}"
-		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && pkill sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "⛔ Execution Node:'${node}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_execd is still running with PID: ${service}"'
+		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile > /dev/null; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && pkill sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "⛔ Execution Node:'${node}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_execd is still running with PID: ${service}"'
 		done
     fi
 }
@@ -138,7 +145,7 @@ function grid-agent_sshfs(){
 	local sshfs_opts=${7}
 	local enable_sudo=${6}
 	# Mount file systems with or without sudo depending on use case
-	echo -e "* Mounting remote file systems: ${user}@${host}"
+	echo -e "* Mounting remote file systems: ${user}@${client}<--${host}"
 	if [ -z "${enable_sudo}" ]; then
 		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}'; sshfs '${user}'@'${host}':'${sshfs_remotefs}'/ '${sshfs_mountpoint}'/ -o '${sshfs_opts}''
 	else
