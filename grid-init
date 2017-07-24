@@ -11,30 +11,19 @@
 ##		3. Mount Shared File Systems for Management & Job Execution
 ##	
 
-# Define Function
-## Help
-function grid-agent_help(){
-	help_text=$(cat <<-EOF
-\n
-Syntax : ${0##*/} >> 'action1 .. actionK'
-\n\n
-Accepted actions :: 
-\n
---Starting a Service
-\n\t	${0##*/} >> keychain\t  # authenticate keyless log in between head and worker node
-\n\t	${0##*/} >> engine\t	  # Start deamons on head and worker nodes
-\n\t	${0##*/} >> mount\t\t	  # Share filesystems for grid management & job exeuction
-\n\n
---Stopping a Service
-\n\t	${0##*/} x> keychain\t  # secure delete of trust
-\n\t	${0##*/} x> engine\t	  # banish deamons
-\n\t	${0##*/} x> mount\t\t	  # Unshare filesystems for grid management & job exeuction
-\n
-EOF
-)
-echo -e ${help_text}
-}
-
+##		TESTING
+##				✅ check keychain creation  (mostly bug free on first pass)
+##						** some issues with keychain-all .. check loop
+##				-  check sshfs
+##						** major issues with reading password from cached file
+##		
+##
+##		TODO
+##				- add benchmark function
+##				- update help
+##				- add uninstall (reverse actions of setup)
+##				- package setup as a function?
+##
 # Define Function
 # Start Relevant Services
 function grid-agent_startservices(){
@@ -69,24 +58,6 @@ function grid-agent_sgedeamon(){
 # Define Function
 ## Configure KEYCHAIN Between All Nodes
 function grid-agent_icebreaker(){
-    # Form trust between all nodes (users & admin)
-    if [ ! -z "$(echo ${GRID_START} | grep -o 'keychain-all')" ]; then
-	# Loop through each compute node
-	for hostnode in ${GRID_COMPUTE_NODES}; do
-	    for clientnode in ${GRID_COMPUTE_NODES}; do
-		grid-agent_keychain ${GRID_USER} ${clientnode} ${hostnode}
-		[ ! -z "${GRID_ADMIN}" ] || [ "${GRID_ADMIN}" != "${GRID_USER}" ] && grid-agent_keychain ${GRID_ADMIN} ${clientnode} ${hostnode}
-	    done
-	done
-    elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'keychain-all')"  ]; then
-	# Loop through each compute node
-	for hostnode in ${GRID_COMPUTE_NODES}; do
-       	    for clientnode in ${GRID_COMPUTE_NODES}; do
-		grid-agent_keychain ${GRID_USER} ${clientnode} ${hostnode}
-		[ ! -z "${GRID_ADMIN}" ] || [ "${GRID_ADMIN}" != "${GRID_USER}" ] && grid-agent_keychain ${GRID_ADMIN} ${clientnode} ${hostnode}
-	    done
-	done
-    fi
     # Form trust from Master to All Nodes
     if [ ! -z "$(echo ${GRID_START} | grep -o 'keychain')" ]; then
 	# Loop through each compute node
@@ -111,12 +82,10 @@ function grid-agent_synchronize(){
 	## Loop through each compute node and mount the relevant file systems
        	for node in ${GRID_COMPUTE_NODES}; do
 	    # Mount Source File System on Each Node
-	    ## Update SSHFS OPTS with allow other
-	    local sshfs_opts=$(echo 'allow_other,' ${GRID_SSHFS_OPTS})
+	    local sshfs_opts=$(echo 'allow_other,' ${GRID_SSHFS_OPTS}) 	    ## Update SSHFS OPTS with allow other
 	    grid-agent_sshfs ${GRID_ADMIN} ${GRID_MASTER_NODE} ${SGE_ROOT} ${node} ${SGE_ROOT} 'enable_sudo' "${sshfs_opts}"
 	    # Mount User Home Directory on Each Node
-	    ## no need to allow other for user (respect their privacy!)
-	    local sshfs_opts=$(echo ${GRID_SSHFS_OPTS})
+	    local sshfs_opts=$(echo ${GRID_SSHFS_OPTS}) 	    ## no need to allow other for user (respect their privacy!)
 	    grid-agent_sshfs ${GRID_USER} ${GRID_MASTER_NODE} ${GRID_NODE_HOME} ${node} ${GRID_HOME} '' "${sshfs_opts}"
 	done
     elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'umount')" ]; then
@@ -149,24 +118,49 @@ function grid-agent_sshfs(){
 	local sshfs_mountpoint=${5}
 	local sshfs_opts=${7}
 	local enable_sudo=${6}
-	# Check Keychain is Configured (sshfs reconnect won't work otherwise)
-	grid-agent_keychain ${user} ${client} ${host}
 	# Mount file systems with or without sudo depending on use case
 	echo -e "* Mounting remote file systems: ${user}@${host}"
 	if [ -z "${enable_sudo}" ]; then
-		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; [ ! -d '${GRID_HOME}' ] && mkdir -vp '${GRID_HOME}'; /usr/local/bin/sshfs '${user}'@'${host}':'${GRID_NODE_HOME}' '${GRID_HOME}' -o '${sshfs_opts}''
+		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}'; sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
 	else
 	    # log in and mount with sudo
-	    ssh ${user}'@'${client} '[ ! -d ${HOME}/grid-tools/grid-config ] && git clone http://github.com/seldamat/grid-tools.git ${HOME}/grid-tools; [ -d ${HOME}/grid-tools ] && cd ${HOME}/grid-tools/ && git pull; . ${HOME}/grid-tools/grid-config cache-sudo; [ ! -d '${GRID_HOME}' ] && openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S mkdir -vp '${GRID_HOME}'; export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S /usr/local/bin/sshfs '${user}'@'${host}':'${GRID_HOME}' '${GRID_NODE_HOME}' -o '${sshfs_opts}'' && exit
+	    ssh ${user}'@'${client} '[ ! -d '${sshfs_mountpoint}' ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S mkdir -vp '${sshfs_mountpoint}'; export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S sshfs '${user}'@'${host}':'${sshfs_remotefs}' '${sshfs_mountpoint}' -o '${sshfs_opts}''
 	fi
 }
-# Load Environmental Variables from Default File
-. grid-config load-config
+# Define Function
+## Help
+function grid-agent_help(){
+	help_text=$(cat <<-EOF
+\n
+Syntax : ${0##*/} [start|stop 'action1 .. actionK'] [setup]
+\n\n
+--Setting up for the first time
+\n\t	${0##*/} setup
+\n\n
+--Starting a Service
+\n\t	${0##*/} start keychain\t  # authenticate keyless log in between head and worker node
+\n\t	${0##*/} start engine\t\t	  # Start deamons on head and worker nodes
+\n\t	${0##*/} start mount\t\t	  # Share filesystems for grid management & job execution
+\n\n
+--Stopping a Service
+\n\t	${0##*/} stop keychain\t  # secure delete of trust
+\n\t	${0##*/} stop engine\t\t	  # banish deamons
+\n\t	${0##*/} stop mount\t\t	  # Unshare filesystems for grid management & job exeuction
+\n
+\nPrint this message with >> ${0##*/} ?|-h|h|-help|help|--help
+\n
+EOF
+)
+echo -e ${help_text}
+}
 # Parse Options
 while :; do
     case ${1} in
+    'setup')
+		setup='setitallup'
+		;;
 	'start')
-       	    if [ -n ${2} ]; then
+       	if [ -n ${2} ]; then
 		shift
 		GRID_START=$@
 		echo $GRID_START
@@ -197,5 +191,24 @@ while :; do
     esac
     shift
 done
+# Load Environmental Variables from Default File
+## sourcing loads all f(x)'s and variables into environment
+. $(pwd)/grid-config config q
+# Execute :: Set Up Everything For First Time
+## configure parameters and install grid tools on all hosts, load all parameters into namespace
+[ ! -z "${setup}" ] && . grid-config 'install' && .grid-config config q
+## copy local configuration file to all hosts
+[ ! -z "${setup}" ] && grid-config remexe "scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/"
+## cache sudo password on all hosts
+[ ! -z "${setup}" ] && grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo q"
+## set up keyless log in between all pairs of hosts
+[ ! -z "${setup}" ] && GRID_START='keychain' && grid-agent_icebreaker
+## mount grid file systems on all hosts
+[ ! -z "${setup}" ] && GRID_START='mount' && grid-agent_synchronize
 # Execute :: Start Services
-grid-agent_startservices
+[ -z "${setup}" ] && grid-agent_startservices
+##
+##
+##
+#
+#
