@@ -32,6 +32,7 @@ LOAD_CONFIG=''
 GRID_BREW=''
 GRID_UNBREW=''
 SSH_OPTS=''
+USER=''
 # Define Function
 ## Print Current Configuration to Screen and Ask User for Modifications
 function grid-config(){
@@ -128,10 +129,12 @@ function grid-config_startkeychain(){
 # Define Function
 ## Execute same command on all hosts on grid
 function grid-config_ssh-exe(){
+	[ -z "${USER}" ] && local user=${GRID_USER}
+	[ ! -z "${USER}" ] && local user=${USER}
     for host in ${GRID_COMPUTE_NODES}; do
 	echo -e "\n📡  Sending Command >> ${GRID_USER}@${host}: ${GRID_COMMAND}"
-	[ -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${GRID_USER}'@'${host} "${GRID_COMMAND}"
-	[ ! -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${GRID_USER}'@'${host} ". ${HOME}/grid-tools/grid-config cache-sudo; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S ${GRID_COMMAND}"
+	[ -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${user}'@'${host} "${GRID_COMMAND}"
+	[ ! -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${user-9}'@'${host} ". ${HOME}/grid-tools/grid-config cache-sudo; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S ${GRID_COMMAND}"
 	echo '⚙️ ---> remote command executed'
     done
 }
@@ -244,6 +247,12 @@ while :; do
 	    if [ -n "${2}" ]; then		
 		GRID_COMMAND=${2}		
 		SSH_OPTS='-t'
+		shift		
+	    fi	    
+	    ;;	    
+	'user')	    
+	    if [ -n "${2}" ]; then		
+		USER=${2}		
 		shift		
 	    fi	    
 	    ;;	    

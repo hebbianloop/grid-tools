@@ -201,9 +201,9 @@ done
 ## configure parameters and install grid tools on all hosts, load all parameters into namespace
 [ ! -z "${setup}" ] && $(pwd)/grid-config 'install' && . $(pwd)/grid-config config q
 ## copy local configuration file to all hosts
-[ ! -z "${setup}" ] && echo -e '\n* Copying Configuration File to: '${GRID_COMPUTE_NODES}; $(pwd)/grid-config intremexe "[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE}); scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/"
+[ ! -z "${setup}" ] && echo -e '\n* Copying Configuration File to: '${GRID_COMPUTE_NODES}; $(pwd)/grid-config intremexe "[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE}); scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/" user $(whoami)
 ## cache sudo password on all hosts
-[ ! -z "${setup}" ] && echo -e '\n* Cache Sudo'; $(pwd)/grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo q"
+[ ! -z "${setup}" ] && echo -e '\n* Cache Sudo'; $(pwd)/grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo q" user $(whoami)
 ## set up keyless log in between all pairs of hosts
 [ ! -z "${setup}" ] && echo -e '\n* Setting Up SSH Keys'; GRID_START='keychain' && grid-agent_icebreaker
 ## mount grid file systems on all hosts

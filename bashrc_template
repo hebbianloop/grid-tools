@@ -1,0 +1,5 @@
+# Template BASHRC for Grid
+
+export PATH=${PATH}:/usr/local/bin
+eval `keychain --agents ssh --eval ogs_rsa`
+[ -z "$(which pwgen)" ] && brew install pwgen
