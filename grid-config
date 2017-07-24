@@ -7,6 +7,7 @@
 ##      TODO
 ##             -  check wifi/network connectivity?
 ##			   -  add cluster status checks (qconf/qhost/etc)
+##			   -  OMG make this more quiet for all the other routine tasks
 
 ##		TESTING - on localhost
 ##				✅  grid-config info
@@ -126,7 +127,7 @@ function grid-config_startkeychain(){
 	echo -e '\nStarting SSH-AGENT on ::  '${GRID_COMPUTE_NODES}
 	[ ! -f ${GRID_SSHKEY} ] && echo -e "\n ‼  Error :: ${GRID_SSHKEY} does not exist..\n" >&2 && exit
     GRID_COMMAND='export PATH=$PATH:/usr/local/bin; eval `keychain --agents ssh --eval '${GRID_SSHKEY}'`' && grid-config_ssh-exe
-    echo '⚙️ ---> got keys'    
+    echo -e '\n⚙️ ---> got keys'    
 }
 # Define Function
 ## Execute same command on all hosts on grid
