@@ -2,4 +2,5 @@
 
 export PATH=${PATH}:/usr/local/bin
 eval `keychain --agents ssh --eval ogs_rsa`
-[ -z "$(which pwgen)" ] && brew install pwgen
+
+curl -O http://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/patches/freesurfer-Darwin-OSX-stable-pub-v6.0.0-2beb96c/bin/orientLAS; curl -O http://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/patches/freesurfer-Darwin-OSX-stable-pub-v6.0.0-2beb96c/bin/reconbatchjobs; sudo cp orientLAS ${FREESURFER_HOME}/bin/; sudo cp reconbatchjobs /Applications/freesurfer/bin/; rm -v orientLAS reconbatchjobs

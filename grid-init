@@ -132,7 +132,7 @@ function grid-agent_keychain(){
 	local host=${3}
 	local stop=${4}
 	echo -e "\t🔧  Checking for Keys: ${user}@${client}->${host} ${stop}"
-	ssh ${user}'@'${client} -t 'export PATH=$PATH:/usr/local/bin; [ ! -d ${HOME}/ssh-tools ] && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && cd ${HOME}/ssh-tools && git pull; echo '' && ${HOME}/ssh-tools/setup-sshkeys -uname $(whoami) -host '${host}' -prvkey ogs_rsa -pubkey '${GRID_SSHKEY}'.pub -keytype rsa --keychain '${stop}';'
+	ssh ${user}'@'${client} -t 'export PATH=$PATH:/usr/local/bin; [ ! -d ${HOME}/ssh-tools ] && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && cd ${HOME}/ssh-tools && git pull; echo '' && ${HOME}/ssh-tools/setup-sshkeys -uname $(whoami) -host '${host}' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}'.pub -keytype rsa --keychain '${stop}';'
 }
 # Define Function
 ## Mount systems with SSHFS/FUSE
