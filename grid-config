@@ -35,12 +35,12 @@ SSH_OPTS=''
 # Define Function
 ## Print Current Configuration to Screen and Ask User for Modifications
 function grid-config(){
-    echo '🛠   CONFIGURATE GRID  🛠'    
-    echo '___________________________'
-    echo '|     🖥 -🖥 -🖥 -🖥 -🖥       |'
-	echo '|     |  |  |  |  |       |'
-	echo '|     🖥 -🖥 -🖥 -🖥 -🖥       |'
-	echo '---------------------------'		
+    [ -z "${quiet}" ] && echo '🛠   CONFIGURATE GRID  🛠'    
+    [ -z "${quiet}" ] && echo '___________________________'
+    [ -z "${quiet}" ] && echo '|     🖥 -🖥 -🖥 -🖥 -🖥       |'
+	[ -z "${quiet}" ] && echo '|     |  |  |  |  |       |'
+	[ -z "${quiet}" ] && echo '|     🖥 -🖥 -🖥 -🖥 -🖥       |'
+	[ -z "${quiet}" ] && echo '---------------------------'		
     # Cache the sudoer password on all compute nodes
     [ ! -z "${CACHE_SUDO}" ] && grid-config_getuserpw && echo '⚙️ --> return' && return 
     # Load variables into namespace
