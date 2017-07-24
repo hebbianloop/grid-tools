@@ -7,7 +7,6 @@
 ##      TODO
 ##             -  check wifi/network connectivity?
 ##			   -  add cluster status checks (qconf/qhost/etc)
-##			   -  add support for multiple users
 
 ##		TESTING - on localhost
 ##				✅  grid-config info
@@ -113,9 +112,11 @@ function grid-config_brew(){
 # Define Function
 ## Install grid-tools and add to path
 function grid-config_install-tools(){
-    for host in ${GRID_COMPUTE_NODES}; do
-	[ "${GRID_INSTALL}" = "install" ] && echo -e '\n🛠 🖥  Installing Grid Tools:  '${GRID_USER}'@'${host} && ssh ${GRID_USER}'@'${host} 'export PATH=$PATH:/usr/local/bin; [ -d ${HOME}/grid-tools ] && cd ${HOME}/grid-tools && git pull; [ ! -d ${HOME}/grid-tools ] && git clone http://github.com/seldamat/grid-tools.git ${HOME}/grid-tools; source ${HOME}/.bash_profile > /dev/null; checkpath=$(echo ${PATH} | grep -o ${HOME}/grid-tools); [ -z ${checkpath} ] && echo -e "\n#Add Grid Tools to Path\n export PATH=${PATH}:${HOME}/grid-tools\n" >> ${HOME}/.bash_profile; exit'
-	[ "${GRID_INSTALL}" = "uninstall" ] && echo -e '\n🛠 🖥  Uninstalling Grid Tools:  '${GRID_USER}'@'${host} && ssh ${GRID_USER}'@'${host} '[ -d ${HOME}/grid-tools ] && rm -frv ${HOME}/grid-tools; exit'
+	for user in ${GRID_USER}; do
+    	for host in ${GRID_COMPUTE_NODES}; do
+		[ "${GRID_INSTALL}" = "install" ] && echo -e '\n🛠 🖥  Installing Grid Tools:  '${user}'@'${host} && ssh ${user}'@'${host} 'export PATH=$PATH:/usr/local/bin; [ -d ${HOME}/grid-tools ] && cd ${HOME}/grid-tools && git pull; [ ! -d ${HOME}/grid-tools ] && git clone http://github.com/seldamat/grid-tools.git ${HOME}/grid-tools; source ${HOME}/.bash_profile > /dev/null; checkpath=$(echo ${PATH} | grep -o ${HOME}/grid-tools); [ -z ${checkpath} ] && echo -e "\n#Add Grid Tools to Path\n export PATH=${PATH}:${HOME}/grid-tools\n" >> ${HOME}/.bash_profile; exit'
+		[ "${GRID_INSTALL}" = "uninstall" ] && echo -e '\n🛠 🖥  Uninstalling Grid Tools:  '${user}'@'${host} && ssh ${user}'@'${host} '[ -d ${HOME}/grid-tools ] && rm -frv ${HOME}/grid-tools; exit'
+    	done
     done
     echo '⚙️ ---> grid-tools'
 }
@@ -132,12 +133,14 @@ function grid-config_startkeychain(){
 function grid-config_ssh-exe(){
 	[ -z "${USER}" ] && local user=${GRID_USER}
 	[ ! -z "${USER}" ] && local user=${USER}
-    for host in ${GRID_COMPUTE_NODES}; do
-	echo -e "\n📡  Sending Command >> ${user}@${host}: ${GRID_COMMAND}"
-	[ -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${user}'@'${host} "${GRID_COMMAND}"
-	[ ! -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${user}'@'${host} ". ${HOME}/grid-tools/grid-config cache-sudo; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S ${GRID_COMMAND}"
-	echo '⚙️ ---> remote command executed'
-    done
+	for u in ${user}; do
+	    for host in ${GRID_COMPUTE_NODES}; do
+		echo -e "\n📡  Sending Command >> ${u}@${host}: ${GRID_COMMAND}"
+		[ -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${u}'@'${host} "${GRID_COMMAND}"
+		[ ! -z "${USER_SUDO}" ] && ssh ${SSH_OPTS} ${u}'@'${host} ". ${HOME}/grid-tools/grid-config cache-sudo; openssl enc -aes-256-cbc -k ${SAFETYKEY} -in ${SAFETYKEYFILE} -d | sudo -S ${GRID_COMMAND}"
+		echo '⚙️ ---> remote command executed'
+	    done
+	done
 }
 # Define Function
 ## Securely store passwords on remote host for non-interactive sudo shell (i.e. via ssh without -t but with sudo commands)
