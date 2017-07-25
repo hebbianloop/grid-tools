@@ -125,7 +125,7 @@ function grid-config_install-tools(){
 ## Start keychain
 function grid-config_startkeychain(){
 	echo -e '\nStarting SSH-AGENT on ::  '${GRID_COMPUTE_NODES}
-	[ ! -f ${GRID_SSHKEY} ] && echo -e "\n ‼  Error :: ${GRID_SSHKEY} does not exist..\n" >&2 && exit
+	[ ! -f "${HOME}/.ssh/${GRID_SSHKEY}" ] && echo -e "\n ‼  Error :: ${HOME}/.ssh/${GRID_SSHKEY} does not exist..\n" >&2 && exit
     GRID_COMMAND='export PATH=$PATH:/usr/local/bin; eval `keychain --agents ssh --eval '${GRID_SSHKEY}'`' && grid-config_ssh-exe
     echo -e '\n  ⚙️ ---> got keys'    
 }
@@ -184,7 +184,7 @@ function grid-config_cachesudo(){
 	# Install/Update Grid-Tools - should clean this up so that you don't have to set and unset install
 	GRID_INSTALL='install' && grid-config_install-tools ${user} ${host} && GRID_INSTALL=''
 	# Check for keys from remote to local
-	ssh -t ${user}@${host} '[ -z "$(cat ${HOME}/.ssh/keypairs | grep -o "$(whoami)@$(hostname)->'$(whoami)'@'$(hostname)'")" ] && echo -e "\n🔐  No authorized key found for '$(whoami)'@'$(hostname)', would you like to create them? [Y/N]  " && read -p "▶️  " proceed && echo ''; [ "${proceed}" = "Y" ] || [ "${proceed}" = "y" ]; [ ! -d ${HOME}/ssh-tools ] && echo "Installing ssh-tools" && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && echo "Updating ssh-tools" && cd ${HOME}/ssh-tools && git pull; ${HOME}/ssh-tools/setup-sshkeys -uname '$(whoami)' -host '$(hostname)' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}.pub' -keytype rsa --keychain'
+	ssh -t ${user}@${host} 'echo [ -z "$(cat ${HOME}/.ssh/keypairs | grep -o "$(whoami)@$(hostname)->'$(whoami)'@'$(hostname)'")" ] && echo -e "\n🔐  No authorized key found for '$(whoami)'@'$(hostname)', would you like to create them? [Y/N]  " && read -p "▶️  " proceed && echo ''; [ "${proceed}" = "Y" ] || [ "${proceed}" = "y" ]; [ ! -d ${HOME}/ssh-tools ] && echo "Installing ssh-tools" && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && echo "Updating ssh-tools" && cd ${HOME}/ssh-tools && git pull; ${HOME}/ssh-tools/setup-sshkeys -uname '$(whoami)' -host '$(hostname)' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}.pub' -keytype rsa --keychain'
 	# Copy Config
 	echo -e "\n* Copying Configuration from $(whoami)@$(hostname)"
 	ssh -t ${user}@${host} '[ ! -d ${HOME}/.grid/ ] && mkdir -vp ${HOME}/.grid; scp '$(whoami)'@'$(hostname)':'${GRID_CONFIG_TEMPLATE}' ${HOME}/.grid/'
