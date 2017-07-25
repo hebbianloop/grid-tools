@@ -8,6 +8,7 @@
 ##             -  check wifi/network connectivity?
 ##			   -  add cluster status checks (qconf/qhost/etc)
 ##			   -  OMG make this more quiet for all the other routine tasks
+##             -  encrypt template? it conatins passphrase
 
 # Set default values for global variables
 GRID_CONFIG_TEMPLATE=${HOME}/.grid/.gconf_template
@@ -28,33 +29,35 @@ USER=''
 # Define Function
 ## Print Current Configuration to Screen and Ask User for Modifications
 function grid-config_run(){
+    ########################################################################
     [ -z "${quiet}" ] && echo '🛠   CONFIGURATE GRID  🛠'    
     [ -z "${quiet}" ] && echo '___________________________'
     [ -z "${quiet}" ] && echo '|     🖥 -🖥 -🖥 -🖥 -🖥       |'
 	[ -z "${quiet}" ] && echo '|     |  |  |  |  |       |'
 	[ -z "${quiet}" ] && echo '|     🖥 -🖥 -🖥 -🖥 -🖥       |'
-	[ -z "${quiet}" ] && echo '---------------------------'		
+	[ -z "${quiet}" ] && echo '---------------------------'
+    ########################################################################
 	echo '🗣 '$(whoami)'@'$(hostname)
     # Cache the sudoer password on all compute nodes
-    [ ! -z "${CACHE_SUDO}" ] && grid-config_getuserpw && echo '  ⚙️ --> return' && return 
+    [ "${CACHE_SUDO}" ] && grid-config_getuserpw && echo '  ⚙️ --> return' && return 
     # Load variables into namespace
-    [ ! -z "${LOAD_CONFIG}" ] && grid-config_loadvars ${GRID_CONFIG_TEMPLATE}
+    [ "${LOAD_CONFIG}" ] && grid-config_loadvars ${GRID_CONFIG_TEMPLATE}
     # Check for existing configuration files
     grid-config_check
     # Execute remote command on all compute nodes
-    [ ! -z "${GRID_COMMAND}" ] && grid-config_ssh-exe    
+    [ "${GRID_COMMAND}" ] && grid-config_ssh-exe    
     # Run a brew install/uninstall on list of remote hosts
-    [ ! -z "${GRID_BREW}" ] || [ ! -z "${GRID_UNBREW}" ] && grid-config_brew
+    [ "${GRID_BREW}" ] || [ "${GRID_UNBREW}" ] && grid-config_brew
     # Install grid-tools on all compute nodes
-    [ ! -z "${GRID_INSTALL}" ] && [ ! -z "${GRID_COMPUTE_NODES}" ] && grid-config_install-tools ${GRID_USER} ${GRID_COMPUTE_NODES}
+    [ "${GRID_INSTALL}" ] && [ "${GRID_COMPUTE_NODES}" ] && grid-config_install-tools ${GRID_USER} ${GRID_COMPUTE_NODES}
     # Start keychain app on all compute nodes
-    [ ! -z "${START_KEYCHAIN}" ] && grid-config_startkeychain
+    [ "${START_KEYCHAIN}" ] && grid-config_startkeychain
 }
 # Define Function
 ## Check for existence of configuration⚙️ file
 function grid-config_check(){
     # Check for File Reset
-    [ -f "${GRID_CONFIG_TEMPLATE}" ] && [ ! -z "${reset}" ] && echo 'Deleting Configuration File :: '${GRID_CONFIG_TEMPLATE} && rm ${GRID_CONFIG_TEMPLATE} && echo '  ⚙️ --> return' && return
+    [ -f "${GRID_CONFIG_TEMPLATE}" ] && [ "${reset}" ] && echo 'Deleting Configuration File :: '${GRID_CONFIG_TEMPLATE} && rm ${GRID_CONFIG_TEMPLATE} && echo '  ⚙️ --> return' && return
     # Read existing Configuration File and load into namespace
     if [ -f "${GRID_CONFIG_TEMPLATE}" ]; then
     	if [ "${quiet}" ]; then
@@ -62,7 +65,7 @@ function grid-config_check(){
     	else
     		echo 'Global Configuration for Grid Services :: ' && echo '_____________________________________________'
     		# print configuration to screen
-    		echo "$(cat $GRID_CONFIG_TEMPLATE)" && echo '_____________________________________________' && [ ! -z "${info}" ] && echo '  ⚙️ --> return' && return
+    		echo "$(cat $GRID_CONFIG_TEMPLATE)" && echo '_____________________________________________' && [ "${info}" ] && echo '  ⚙️ --> return' && return
     		read -p "📍 [A]ccept/[E]dit Settings? (return to exit) >>" proceed && echo '_____________________________________________'
 		fi
 		if [ "${proceed}" = 'E' ] || [ "${proceed}" = 'Edit' ] || [ "${proceed}" = 'e' ]; then
@@ -76,7 +79,7 @@ function grid-config_check(){
     	# Populate namespace if config template variable is not defined		
 		grid-config_template
     fi
-	echo '  ⚙️ ---> checked for configuration file'
+	echo '  ⚙️ ---> checked for existing configuration'
 }
 # Define Function
 ## Populate namespace
@@ -100,8 +103,8 @@ function grid-config_editconf(){
 function grid-config_brew(){
 	for host in ${GRID_COMPUTE_NODES}; do
 		echo '🖥  Brewing:  '${GRID_ADMIN}'@'${host}
-		[ ! -z "${GRID_BREW}" ] && ssh ${GRID_ADMIN}'@'${host} 'export PATH=$PATH:/usr/local/bin; [ -z "$(which brew)" ] && ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"; brew install '${GRID_BREW}
-		[ ! -z "${GRID_UNBREW}" ] && ssh ${GRID_ADMIN}'@'${host} 'export PATH=$PATH:/usr/local/bin; brew uninstall '${GRID_UNBREW}
+		[ "${GRID_BREW}" ] && ssh ${GRID_ADMIN}'@'${host} 'export PATH=$PATH:/usr/local/bin; [ -z "$(which brew)" ] && ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"; brew install '${GRID_BREW}
+		[ "${GRID_UNBREW}" ] && ssh ${GRID_ADMIN}'@'${host} 'export PATH=$PATH:/usr/local/bin; brew uninstall '${GRID_UNBREW}
 	done
 	echo '  ⚙️ ---> brewed'
 }
@@ -138,12 +141,20 @@ function grid-config_ssh-exe(){
 		user=${USER}
 	fi
 	# Check whether command is sudo
-	[ ! -z "$(echo ${GRID_COMMAND} | grep -o "sudo ")" ] && USER_SUDO='itsasudo!'
+	[ "$(echo ${GRID_COMMAND} | grep -o "sudo ")" ] && USER_SUDO='itsasudo!'
+	# switch all sudo commands to obtain password from stdin using pw cache 
+	[ "${USER_SUDO}" ] && GRID_COMMAND=$(echo ${GRID_COMMAND} | sed 's_sudo_openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in ${HOME}/.grid/.safety.$(hostname).ogs  -d | sudo -S_')				
 	# Execute SUDO only with the administrator account if one isn't provided as input
-	[ ! -z "${USER_SUDO}" ] && [ -z "${USER}" ] && user=${GRID_ADMIN}
+	[ "${USER_SUDO}" ] && [ -z "${USER}" ] && user=${GRID_ADMIN}
 	# Loop over users and hosts and do your biz
+	local u=''
+	local host=''
 	for u in ${user}; do
 	    for host in ${GRID_COMPUTE_NODES}; do
+		# keypairs is a list of all log in portals created by setup-sshkeys
+		# TODO ::
+		#         - make sure setup-sshkeys --reset deletes this list
+		#         - include keyless log in from installation host in setup for grid-init 
     		if [ -z "$(cat ${HOME}/.ssh/keypairs | grep -o "$(whoami)@$(hostname)->${u}@${host}")" ]; then
     			echo -e "\n🔐  No authorized key found for ${u}@${host}, would you like to create them? [Y/N]  " && read -p '▶️  ' proceed && echo ''
     			if [ "${proceed}" = 'Y' ] || [ "${proceed}" = 'y' ]; then
@@ -159,7 +170,7 @@ function grid-config_ssh-exe(){
 				ssh ${SSH_OPTS} ${u}'@'${host} "${GRID_COMMAND}"
 			else
 				grid-config_cachesudo ${u} ${host}
-				ssh ${SSH_OPTS} ${u}'@'${host} 'openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in ${HOME}/.grid/.safety.$(hostname).ogs  -d | sudo -S '${GRID_COMMAND}''
+				ssh ${SSH_OPTS} ${u}'@'${host} ${GRID_COMMAND}
 			fi
 			echo -e '\n  ⚙️ ---> remote command executed'
 	    done
@@ -172,6 +183,8 @@ function grid-config_cachesudo(){
 	local host=${2}
 	# Install/Update Grid-Tools - should clean this up so that you don't have to set and unset install
 	GRID_INSTALL='install' && grid-config_install-tools ${user} ${host} && GRID_INSTALL=''
+	# Check for keys from remote to local
+	ssh -t ${user}@${host} '[ -z "$(cat ${HOME}/.ssh/keypairs | grep -o "$(whoami)@$(hostname)->'$(whoami)'@'$(hostname)'")" ] && echo -e "\n🔐  No authorized key found for '$(whoami)'@'$(hostname)', would you like to create them? [Y/N]  " && read -p "▶️  " proceed && echo ''; [ "${proceed}" = "Y" ] || [ "${proceed}" = "y" ]; [ ! -d ${HOME}/ssh-tools ] && echo "Installing ssh-tools" && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && echo "Updating ssh-tools" && cd ${HOME}/ssh-tools && git pull; ${HOME}/ssh-tools/setup-sshkeys -uname '$(whoami)' -host '$(hostname)' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}.pub' -keytype rsa --keychain'
 	# Copy Config
 	echo -e "\n* Copying Configuration from $(whoami)@$(hostname)"
 	ssh -t ${user}@${host} '[ ! -d ${HOME}/.grid/ ] && mkdir -vp ${HOME}/.grid; scp '$(whoami)'@'$(hostname)':'${GRID_CONFIG_TEMPLATE}' ${HOME}/.grid/'
@@ -227,6 +240,7 @@ This program configures global variables for grid management.
 \n\n
 Local Options (executed only on localhost) ::
 \n
+\t\tinfo\t\t\t print contents of grid config template
 \tload\t\t<FILE>\t    load a configuration file\n
 \treset\t\t\t         delete local configuration file\n
 \tconfig\t\t\t  populate local namespace\n
@@ -333,7 +347,7 @@ done
 
 # Execute configuration
 grid-config_run
-echo '* * * done * * *'
+echo '* * * grid-config * * *'
 ##
 ##
 #
