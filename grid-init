@@ -13,7 +13,6 @@
 
 ##		TESTING
 ##				✅ check keychain creation  (mostly bug free on first pass)
-##						** some issues with keychain-all .. check loop
 ##				-  check sshfs
 ##						** major issues with reading password from cached file
 ##		
@@ -22,10 +21,11 @@
 ##				- add benchmark function
 ##				- update help
 ##				- add uninstall (reverse actions of setup)
-##				- package setup as a function?
 ##				- check if mounts are successful
 ##				- more information when looping through hosts..
 ##				- weird things with different user homes being moutned
+##				- tool for checking whether things are mounted
+##				- autosetup of host homes on CFMI-CFS
 ##
 # Define Function
 ## Set Up Everything For First Time
@@ -35,15 +35,22 @@ function grid-agent_setup(){
 	##		- clean up all the output to the screen
 	##		- have check points to route where you're oging
 	## configure parameters and install grid tools on all hosts, load all parameters into namespace
-	echo -e '\nChecking for latest installation...\n' && $(pwd)/grid-config 'install' && . $(pwd)/grid-config config q
-	## copy local configuration file to all hosts
-	echo -e '\n* Copying Configuration to: '${GRID_COMPUTE_NODES}; $(pwd)/grid-config intremexe "[ ! -d "$(dirname ${GRID_CONFIG_TEMPLATE})" ] && mkdir -vp $(dirname ${GRID_CONFIG_TEMPLATE}); scp $(whoami)@$(hostname):${GRID_CONFIG_TEMPLATE} $(dirname ${GRID_CONFIG_TEMPLATE})/" user $(whoami)
-	## cache sudo password on all hosts
-	echo -e '\n* Cache Sudo'; $(pwd)/grid-config intremexe "${HOME}/grid-tools/grid-config cache-sudo" user $(whoami)
+	echo -e '\n🛠  Checking for latest installation...\n' && $(pwd)/grid-config 'install' && . $(pwd)/grid-config config q
+	## test remote command execution.. will create keys and cache sudo
+	echo -e '\n🛠  Testing Remote Command Execution on Pool: '${GRID_COMPUTE_NODES}; $(pwd)/grid-config remexe 'sudo hostname->'$(hostname)'; echo 📢 can you hear me now?; ${HOME}/grid-tools/grid-config info'
 	## set up keyless log in between all pairs of hosts
-	echo -e '\n* Setting Up SSH Keys'; GRID_START='keychain' && grid-agent_icebreaker
+	echo -e '\n🛠  Setting Up SSH Keys'; GRID_START='keychain' && grid-agent_icebreaker
 	## mount grid file systems on all hosts
-	echo -e '\n* Mounting Grid File Systems'; GRID_START='mount' && grid-agent_synchronize	
+	echo -e '\n🛠  Mounting Grid File Systems'; GRID_START='mount' && grid-agent_synchronize	
+}
+# Define Function
+## Reverse actions of setup
+function grid-agent_uninstall(){
+	## TODO
+	##		- uninstall grid tools from all compute nodes, including .grid folder
+	##		- delete all key pairs and clear authorized_keys file
+	##		- umount everything
+	return
 }
 # Define Function
 ## Start Relevant Services
@@ -60,16 +67,16 @@ function grid-agent_startservices(){
 function grid-agent_sgedeamon(){
     local node=''
     # Start SGE Master Deamon
-    if [ ! -z "$(echo ${GRID_START} | grep -o 'engine')" ]; then
+    if [ "$(echo ${GRID_START} | grep -o 'engine')" ]; then
 		echo -e "\nStarting Master Host: ${GRID_ADMIN}@${GRID_MASTER_NODE}"
 		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile  > /dev/null; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_qmaster is not running - check environment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Master Host was started successfully - sge_qmaster is running with PID: ${service}"'
 		for node in ${GRID_COMPUTE_NODES}; do
 		    echo -e "\nWaking Worker Node: ${GRID_ADMIN}@${node}"
-		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_execd is not running - check enviroment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Execution Host was started successfully - sge_execd is running with PID: ${service}"'
+		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile > /dev/null; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && /opt/ogs/bin/darwin-x64/sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "!! HOST ERROR - sge_execd is not running - check enviroment and/or host config"; [ ! -z "${service}" ] && echo -e "✅  Execution Host was started successfully - sge_execd is running with PID: ${service}"'
 		done
-    elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'engine')" ]; then
+    elif [ "$(echo ${GRID_STOP} | grep -o 'engine')" ]; then
 		echo -e "\nStopping Master Host: ${GRID_ADMIN}@{GRID_MASTER_NODE}"
-		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile; service=$(echo $(pgrep "sge_qmaster")); [ ! -z "${service}" ] && pkill sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "⛔ QMaster Host:'${GRID_MASTER_NODE}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_qmaster is still running with PID: ${service}"'
+		ssh ${GRID_ADMIN}'@'${GRID_MASTER_NODE} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile > /dev/null; service=$(echo $(pgrep "sge_qmaster")); [ ! -z "${service}" ] && pkill sge_qmaster && sleep 1; service=$(echo $(pgrep "sge_qmaster")); [ -z "${service}" ] && echo "⛔ QMaster Host:'${GRID_MASTER_NODE}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_qmaster is still running with PID: ${service}"'
 		for node in ${GRID_COMPUTE_NODES}; do
 		    echo -e "\nClocking out Worker Node: ${GRID_ADMIN}@${node}"
 		    ssh ${GRID_ADMIN}'@'${node} 'export PATH=$PATH:/usr/local/bin; source ${HOME}/.bash_profile > /dev/null; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && pkill sge_execd && sleep 1; service=$(echo $(pgrep "sge_execd")); [ -z "${service}" ] && echo "⛔ Execution Node:'${node}' Has Shutdown"; [ ! -z "${service}" ] && echo -e "!! SHUTDOWN ERROR - sge_execd is still running with PID: ${service}"'
@@ -79,79 +86,45 @@ function grid-agent_sgedeamon(){
 # Define Function
 ## Configure KEYCHAIN Between All Nodes
 function grid-agent_icebreaker(){
-	local user=''
-    # Form trust from Master to All Nodes
-    if [ ! -z "$(echo ${GRID_START} | grep -o 'keychain')" ]; then
-    	for user in ${GRID_USER}; do
-			# Loop through each compute node
-		    for node in ${GRID_COMPUTE_NODES}; do
-			    grid-agent_keychain ${user} ${node} ${GRID_MASTER_NODE}
-			done
-		done
-    elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'keychain')" ]; then
-		# Loop through each compute node
-		for user in ${GRID_USER}; do
-			for node in ${GRID_COMPUTE_NODES}; do
-			    echo ${node}
-			    grid-agent_keychain ${user} ${node} ${GRID_MASTER_NODE} '--reset'
-			done
-		done
+    # Form trust for all Grid Users from Master to All Nodes 
+    if [ "$(echo ${GRID_START} | grep -o 'keychain')" ]; then
+    	echo -e "\t🔧  Checking for Keys: ${user}@${client}->${host}"
+    	$(pwd)/grid-config intremexe 'export PATH=$PATH:/usr/local/bin; [ ! -d ${HOME}/ssh-tools ] && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && cd ${HOME}/ssh-tools && git pull; echo '' && ${HOME}/ssh-tools/setup-sshkeys -uname $(whoami) -host '${GRID_MASTER_NODE}' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}'.pub -keytype rsa --keychain;' q
+    elif [ "$(echo ${GRID_STOP} | grep -o 'keychain')" ]; then
+    	echo -e "\t🔧  Deleting Trust: ${user}@${client}->${host}"
+		$(pwd)/grid-config intremexe 'export PATH=$PATH:/usr/local/bin; [ ! -d ${HOME}/ssh-tools ] && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && cd ${HOME}/ssh-tools && git pull; echo '' && ${HOME}/ssh-tools/setup-sshkeys -uname $(whoami) -host '${GRID_MASTER_NODE}' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}'.pub -keytype rsa --keychain --reset;' q
     fi	
 }
 # Define Function
 ## Mount SGE File Systems Across Network on All Nodes - Universal File Paths
+##  -- this entire function may not be needed.. can probably just use remote execution
 function grid-agent_synchronize(){
+	local user=''
+	local node=''
     # Define Function
-    if [ ! -z "$(echo ${GRID_START} | grep -o 'mount')" ]; then
-	## Loop through each compute node and mount the relevant file systems
-       	for node in ${GRID_COMPUTE_NODES}; do
-		    # Mount Source File System on Each Node
-		    local sshfs_opts=$(echo 'allow_other,'${GRID_SSHFS_OPTS}) 	    ## Update SSHFS OPTS with allow other
-		    grid-agent_sshfs ${GRID_ADMIN} ${GRID_MASTER_NODE} ${SGE_ROOT} ${node} ${SGE_ROOT} 'enable_sudo' "${sshfs_opts}"
-		    # Mount User Home Directory on Each Node
-		    local sshfs_opts=$(echo ${GRID_SSHFS_OPTS}) 	    ## no need to allow other for user (respect their privacy!)
-		    for user in ${GRID_USER}; do
-		    	grid-agent_sshfs ${user} ${GRID_MASTER_NODE} ${GRID_NODE_HOME} ${node} ${GRID_HOME} '' "${sshfs_opts}"
-		    done
+    if [ "$(echo ${GRID_START} | grep -o 'mount')" ]; then
+    	# Administrator must mount source with allow_other flag otherwise users can't see source
+    	if [ -z "$(echo ${GRID_SSHFS_OPTS} | grep -o 'allow_other,')" ]; then
+    		local sshfs_opts=$(echo 'allow_other,'${GRID_SSHFS_OPTS}) 	    ## Update SSHFS OPTS with allow other
+    	else
+    		local sshfs_opts=${GRID_SSHFS_OPTS}
+    	fi
+    	# Mount OGS source into SGE_ROOT (will be run as GRID_ADMIN)
+		echo -e "\n🗄 Mounting OGS Source from Master: ${GRID_ADMIN}@client<--${GRID_MASTER_NODE}:${SGE_ROOT}"
+		$(pwd)/grid-config remexe '[ ! -d '${SGE_ROOT}' ] && sudo mkdir -vp '${SGE_ROOT}'; export PATH=${PATH}:/usr/local/bin && eval `keychain --agents ssh --eval '${GRID_SSHKEY}'`; sudo sshfs '${GRID_ADMIN}'@'${GRID_MASTER_NODE}':'${SGE_ROOT}'/ '${SGE_ROOT}'/ -o '${sshfs_opts}'' q
+		# Mount OGS home for each user
+		echo -e "\n🗄 Mounting Home Directory for OGS Users: client<--${GRID_MASTER_NODE}:${GRID_HOME}" && sshfs_opts=${GRID_SSHFS_OPTS}
+		for user in ${GRID_USER}; do
+			$(pwd)/grid-config remexe 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval '${GRID_SSHKEY}'`; [ ! -d '${GRID_HOME}' ] && mkdir -vp '${GRID_HOME}'; sshfs '${user}'@'${GRID_MASTER_NODE}':'${GRID_NODE_HOME}'/ '${GRID_HOME}'/ -o '${sshfs_opts}'' user ${user} q
 		done
-    elif [ ! -z "$(echo ${GRID_STOP} | grep -o 'umount')" ]; then
-		## Loop through each compute node and unmount the relevant file system
-		for node in ${GRID_COMPUTE_NODES}; do
-		    # Unmount Source File Systems on Each Node
-		    ssh ${GRID_ADMIN}'@'${node} '[ -d "'${SGE_ROOT}'/" ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S diskutil umount force '${SGE_ROOT}'/; [ -d "'${SGE_ROOT}'/" ] && echo "!! Unmount Failed"; [ ! -d "'${SGE_ROOT}'/" ] && echo "⏫  Unmounted ${SGE_ROOT}"'
-		    # Unmount User Home Directory on Each Node
-		    ssh ${GRID_ADMIN}'@'${node} '[ -d "'${GRID_HOME}'/" ] && diskutil umount force '${GRID_HOME}'/; [ -d "'${GRID_HOME}'/" ] && echo "!! Unmount Failed"; [ ! -d "'${GRID_HOME}'/" ] && echo "⏫  Unmounted Grid Home Folder: '${GRID_HOME}'"'
-		done
-    fi
-}
-# Define Function
-## Set up SSHKEYS with KEYCHAIN
-function grid-agent_keychain(){
-	local user=${1}
-	local client=${2}
-	local host=${3}
-	local stop=${4}
-	echo -e "\t🔧  Checking for Keys: ${user}@${client}->${host} ${stop}"
-	ssh ${user}'@'${client} -t 'export PATH=$PATH:/usr/local/bin; [ ! -d ${HOME}/ssh-tools ] && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && cd ${HOME}/ssh-tools && git pull; echo '' && ${HOME}/ssh-tools/setup-sshkeys -uname $(whoami) -host '${host}' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}'.pub -keytype rsa --keychain '${stop}';'
-}
-# Define Function
-## Mount systems with SSHFS/FUSE
-function grid-agent_sshfs(){
-	local user=${1}
-	local host=${2}
-	local sshfs_remotefs=${3}
-	local client=${4}
-	local sshfs_mountpoint=${5}
-	local sshfs_opts=${7}
-	local enable_sudo=${6}
-	# Mount file systems with or without sudo depending on use case
-	echo -e "* Mounting remote file systems: ${user}@${client}<--${host}"
-	if [ -z "${enable_sudo}" ]; then
-		ssh ${user}'@'${client} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval`; [ ! -d '${sshfs_mountpoint}' ] && mkdir -vp '${sshfs_mountpoint}'; sshfs '${user}'@'${host}':'${sshfs_remotefs}'/ '${sshfs_mountpoint}'/ -o '${sshfs_opts}''
-	else
-	    # log in and mount with sudo
-	    ssh ${user}'@'${client} '[ ! -d '${sshfs_mountpoint}' ] && openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S mkdir -vp '${sshfs_mountpoint}'; export PATH=${PATH}:/usr/local/bin && eval `keychain --agents ssh --eval`; openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in '${SAFETYKEYFILE}' -d | sudo -S sshfs '${user}'@'${host}':'${sshfs_remotefs}'/ '${sshfs_mountpoint}'/ -o '${sshfs_opts}''
-	fi
+    elif [ "$(echo ${GRID_STOP} | grep -o 'mount')" ]; then
+    	# Unmount Source File Systems on Each Node
+    	echo -e "\n🗄 Unmounting OGS Source from Master: ${GRID_ADMIN}@${client}x--x${GRID_MASTER_NODE}:${SGE_ROOT}"
+    	$(pwd)/grid-config remexe '[ -d '${SGE_ROOT}' ] && sudo diskutil umount force '${SGE_ROOT}'/' q
+    	# Unmount User Home Directory on Each Node
+    	echo -e "\n🗄 Unmounting Home Directory for OGS Users: ${client}x--x${GRID_MASTER_NODE}:${GRID_HOME}"
+		$(pwd)/grid-config remexe '[ -d "'${GRID_HOME}'/" ] && diskutil umount force '${GRID_HOME}'/' q
+    fi    	
 }
 # Define Function
 ## Help
@@ -179,6 +152,8 @@ EOF
 )
 echo -e ${help_text}
 }
+# Load Environmental Variables from Default File - sourcing loads all f(x)'s and variables into environment
+. $(pwd)/grid-config load q
 # Parse Options
 while :; do
     case ${1} in
@@ -189,7 +164,6 @@ while :; do
        	if [ -n ${2} ]; then
 			shift
 			GRID_START=$@
-			echo $GRID_START
 			break
 	    else
 			GRID_START="keychain mount engine"
@@ -217,12 +191,11 @@ while :; do
     esac
     shift
 done
-# Load Environmental Variables from Default File - sourcing loads all f(x)'s and variables into environment
-. $(pwd)/grid-config config q
 ## Execute :: Set Up Everything For First Time
-[ ! -z "${setup}" ] && grid-agent_setup
+[ "${setup}" ] && grid-agent_setup
 # Execute :: Start Services
 [ -z "${setup}" ] && grid-agent_startservices
+echo '* * *  grid-init  * * *'
 ##
 ##
 ##
