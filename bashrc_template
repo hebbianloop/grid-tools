@@ -1,6 +1,20 @@
 # Template BASHRC for Grid
 
+GRID_ADMIN='sgeadmin'
+GRID_COMPUTE_NODES=\'$(hostname)\'
+GRID_CONFIG_TEMPLATE=${HOME}/.grid/.gconf_template
+GRID_HOME='${HOME}/ogs_home'
+GRID_MASTER_NODE=''
+GRID_USER='sgeuser'
+GRID_NODE_HOME='/Volumes/NFS/home/sgeuser/$(hostname)'
+GRID_SSHFS_OPTS='defer_permissions,follow_symlinks,kernel_cache,reconnect,cipher=arcfour,cache=yes'
+GRID_SSHKEY='ogs_rsa'
+GRID_START=\'engine\'
+GRID_STOP=\'engine\'
+SAFETYKEY='safetypin'
+SGE_ROOT='/opt/ogs'
+
 export PATH=${PATH}:/usr/local/bin
 eval `keychain --agents ssh --eval ogs_rsa`
-
-curl -O http://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/patches/freesurfer-Darwin-OSX-stable-pub-v6.0.0-2beb96c/bin/orientLAS; curl -O http://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/patches/freesurfer-Darwin-OSX-stable-pub-v6.0.0-2beb96c/bin/reconbatchjobs; sudo cp orientLAS ${FREESURFER_HOME}/bin/; sudo cp reconbatchjobs /Applications/freesurfer/bin/; rm -v orientLAS reconbatchjobs
+SGE_ROOT=/opt/ogs # read this from grid config?
+export PATH="$SGE_ROOT/bin/darwin-x64:$PATH"
