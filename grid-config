@@ -7,8 +7,9 @@
 ##      TODO
 ##             -  check wifi/network connectivity?
 ##			   -  add cluster status checks (qconf/qhost/etc)
-##			   -  OMG make this more quiet for all the other routine tasks
 ##             -  encrypt template? it conatins passphrase
+##			   -  installation of .bashrc for configuration
+##			   -  add ability to remote execute on specified host as opposed to config
 
 # Set default values for global variables
 GRID_CONFIG_TEMPLATE=${HOME}/.grid/.gconf_template
@@ -143,7 +144,7 @@ function grid-config_ssh-exe(){
 	# Check whether command is sudo
 	[ "$(echo ${GRID_COMMAND} | grep -o "sudo ")" ] && USER_SUDO='itsasudo!'
 	# switch all sudo commands to obtain password from stdin using pw cache 
-	[ "${USER_SUDO}" ] && GRID_COMMAND=$(echo ${GRID_COMMAND} | sed 's_sudo_openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in ${HOME}/.grid/.safety.$(hostname).ogs  -d | sudo -S_')				
+	[ "${USER_SUDO}" ] && GRID_COMMAND=$(echo ${GRID_COMMAND} | sed 's_sudo_openssl enc -aes-256-cbc -k '${SAFETYKEY}' -in ${HOME}/.grid/.safety.$(hostname).ogs  -d | sudo -S_g')				
 	# Execute SUDO only with the administrator account if one isn't provided as input
 	[ "${USER_SUDO}" ] && [ -z "${USER}" ] && user=${GRID_ADMIN}
 	# Loop over users and hosts and do your biz
@@ -184,10 +185,10 @@ function grid-config_cachesudo(){
 	# Install/Update Grid-Tools - should clean this up so that you don't have to set and unset install
 	GRID_INSTALL='install' && grid-config_install-tools ${user} ${host} && GRID_INSTALL=''
 	# Check for keys from remote to local
-	ssh -t ${user}@${host} 'echo [ -z "$(cat ${HOME}/.ssh/keypairs | grep -o "$(whoami)@$(hostname)->'$(whoami)'@'$(hostname)'")" ] && echo -e "\n🔐  No authorized key found for '$(whoami)'@'$(hostname)', would you like to create them? [Y/N]  " && read -p "▶️  " proceed && echo ''; [ "${proceed}" = "Y" ] || [ "${proceed}" = "y" ]; [ ! -d ${HOME}/ssh-tools ] && echo "Installing ssh-tools" && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ -d ${HOME}/ssh-tools ] && echo "Updating ssh-tools" && cd ${HOME}/ssh-tools && git pull; ${HOME}/ssh-tools/setup-sshkeys -uname '$(whoami)' -host '$(hostname)' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}.pub' -keytype rsa --keychain'
+	ssh -t ${user}@${host} '[ -z $(cat ${HOME}/.ssh/keypairs | grep -o "$(whoami)@$(hostname)->'$(whoami)'@'$(hostname)'") ] && echo -e "\n🔐  No authorized key found for '$(whoami)'@'$(hostname)', would you like to create them? [Y/N]  " && read -p "▶️  " proceed; [ "${proceed}" = "Y" ] || [ "${proceed}" = "y" ] && [ ! -d ${HOME}/ssh-tools ] && echo "Installing ssh-tools" && git clone https://github.com/seldamat/ssh-tools.git ${HOME}/ssh-tools; [ "${proceed}" = "Y" ] || [ "${proceed}" = "y" ] && [ -d ${HOME}/ssh-tools ] && echo "Updating ssh-tools" && cd ${HOME}/ssh-tools && git pull; [ "${proceed}" = "Y" ] || [ "${proceed}" = "y" ] && ${HOME}/ssh-tools/setup-sshkeys -uname '$(whoami)' -host '$(hostname)' -prvkey '${GRID_SSHKEY}' -pubkey '${GRID_SSHKEY}.pub' -keytype rsa --keychain'
 	# Copy Config
 	echo -e "\n* Copying Configuration from $(whoami)@$(hostname)"
-	ssh -t ${user}@${host} '[ ! -d ${HOME}/.grid/ ] && mkdir -vp ${HOME}/.grid; scp '$(whoami)'@'$(hostname)':'${GRID_CONFIG_TEMPLATE}' ${HOME}/.grid/'
+	ssh -t ${user}@${host} 'export PATH=${PATH}:/usr/local/bin; eval `keychain --agents ssh --eval ogs_rsa`; [ ! -d ${HOME}/.grid/ ] && mkdir -vp ${HOME}/.grid; scp '$(whoami)'@'$(hostname)':'${GRID_CONFIG_TEMPLATE}' ${HOME}/.grid/'
 	echo -e "\n* Checking for sudo $(whoami)@$(hostname)"
 	ssh -t ${user}@${host} '[ ! -f ${HOME}/.grid/.safety.$(hostname).ogs ] && ${HOME}/grid-tools/grid-config q cache-sudo'
 }
